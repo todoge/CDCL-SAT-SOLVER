@@ -1,4 +1,6 @@
 import sys
+from cnf import CNF
+from solver import SATSolver
 
 def parse_dimacs_cnf(filename):
     clauses = []
@@ -9,30 +11,23 @@ def parse_dimacs_cnf(filename):
                 continue
             if line.startswith('p'):
                 n_vars, n_clauses = map(int, line.split()[2:4])
-                continue
-            clause = list(map(int, line.split()))[:-1]
-            clauses.append(clause)
+            else:
+                clause = list(map(int, line.split()))[:-1]
+                clauses.append(clause)
     return n_vars, n_clauses, clauses
 
-
-
-def create_proposition_matrix(n_vars, clauses):
-    matrix = []
-    for clause in clauses:
-        row = [0] * (n_vars + 1)
-        for literal in clause:
-            var = abs(literal)
-            prop = 1 if literal > 0 else -1
-            if row[var] != 0 and row[var] != prop:
-                ##Setting to 0 if 2 literals in a clause is opposite
-                row[var] = 0
-            else:
-                row[var] = prop
-        matrix.append(row)
-    return matrix
-
 if __name__ == "__main__":
-    filename = sys.argv[1]
+    filename = sys.argv[1] if len(sys.argv) > 1 else 'sample.txt'
     n_vars, n_clauses, clauses = parse_dimacs_cnf(filename)
-    matrix = create_proposition_matrix(n_vars, clauses)
-    print(matrix)
+    print('CONVERTING INTO CNF with', n_vars, 'variables', n_clauses, 'clauses')
+    cnf = CNF(var_len=n_vars, clauses=clauses)
+    print('CNF successfully converted')
+    print(cnf)
+    print('\nRunning solver\n')
+    solver = SATSolver(var_len=n_vars, clause_len=n_clauses)
+    isSolvable = solver.simpleSolver(cnf)
+    print('SOLVER COMPLETED!')
+    if isSolvable:
+        print('CNF is SOLVABLE!!')
+    else:
+        print('CNF is NOT SOLVABLE!')
