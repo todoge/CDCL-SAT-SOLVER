@@ -11,6 +11,33 @@ class Clause:
             else:
                 tmp_clause[idx] = prop
         self.clause = tmp_clause
+    
+    # Check is assignment fulfils clause
+    def isSAT(self, assignment:List[int]):
+        if len(assignment) != self.var_len:
+            raise Exception('Assignment length not equal to variable length!')
+        for idx, val in enumerate(assignment):
+            if self.clause[idx] * val == 1:
+                return True
+        return False
+
+    # Check if clause is empty
+    def isEmpty(self):
+        for lit in self.clause:
+            if lit != 0:
+                return False
+        return True
+
+    # Check is clause is a unit clause
+    def isUnit(self):
+        flag = 0
+        for lit in self.clause:
+            if lit != 0:
+                if flag < 1:
+                    flag += 1
+                else:
+                    return False
+        return True
 
     def __repr__(self):
         tkns = ['(']
@@ -23,14 +50,6 @@ class Clause:
                     tkns.append(' \/ ')
         tkns.append(')')
         return ''.join(tkns)
-    
-    def isSAT(self, assignment:List[int]):
-        if len(assignment) != self.var_len:
-            raise Exception('Assignment length not equal to variable length!')
-        for idx, val in enumerate(assignment):
-            if self.clause[idx] * val == 1:
-                return True
-        return False
 
 class CNF:
     cnf : List[Clause]
@@ -40,11 +59,32 @@ class CNF:
         for clause in clauses:
             self.cnf.append(Clause(clause, var_len))
     
+    # Check is assignment can fulfil a CNF
     def isSAT(self, assignment:List[int]):
         for clause in self.cnf:
             if not clause.isSAT(assignment):
                 return False
         return True
+
+    # Finds the first unit clause in the CNF
+    def findUnit(self):
+        for clause in self.cnf:
+            if clause.isUnit():
+                return clause
+        return None
+
+    # Performs resolution on 2 Clause
+    def resolution(clause1:Clause, clause2:Clause):
+        resolved = []
+        for idx, lit in enumerate(clause1):
+            resolved_lit = lit + clause2[idx]
+            if resolved_lit > 0:
+                resolved.append(1)
+            elif resolved_lit < 0:
+                resolved.append(-1)
+            else:
+                resolved.append(0)
+        return resolved
 
     def __repr__(self):
         rep = ''
