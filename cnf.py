@@ -13,7 +13,7 @@ class CNF:
         self.create_proposition_matrix()
 
     def all_assigned(self):
-        return 0 not in self.assignment[1:]
+        return 0 not in self.assignment[1:] # no variable is unassigned 
 
     def create_proposition_matrix(self):
         for clause in self.clauses:
@@ -122,17 +122,28 @@ class CNF:
 
             status, cause_row_number = self.unit_prop(len(self.matrix) - 1)
             if status == "UNSAT":
-                new_clause = analyze_conflict(cause_row_number)
+                new_clause = analyze_conflict(cause_row_number, picked_var)
                 backtrack(picked_var, new_clause)
 
         return "SAT"
     
     # returns the variable and its value (-1 or 1) to be picked
-    def pick_branch(self):
+    def pick_branch(self): # pick by occurence frequency, per length of clause
+        # remember to check the existing assignment
         return 1, -1
     
-    def analyze_conflict(self, cause_row_number):
-        return []
+    def analyze_conflict(self, cause_row_number, picked_var):
+        causes = []
+        for row_number_and_assigned_variable in self.row_number_and_assigned_variable_stack:
+            row_number = row_number_and_assigned_variable[0]
+            assigned_variable = row_number_and_assigned_variable[1]
+            if self.matrix[row_number][assigned_variable] == self.matrix[cause_row_number][assigned_variable]:
+        causes.append((picked_var, self.assignment[picked_var]))
+
+    def get_cause_assignments(self, cause_row_number):
+        causes = []
+        if cause_row_number <
+        
     
     def backtrack(self, picked_var, new_clause):
         return
