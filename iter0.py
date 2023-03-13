@@ -1,4 +1,5 @@
 import sys
+from cnf import CNF
 
 def parse_dimacs_cnf(filename):
     clauses = []
@@ -36,3 +37,6 @@ if __name__ == "__main__":
     n_vars, n_clauses, clauses = parse_dimacs_cnf(filename)
     matrix = create_proposition_matrix(n_vars, clauses)
     print(matrix)
+    cnf = CNF(n_var=n_vars, clauses=clauses)
+    r = cnf.solve()
+    print(r)
