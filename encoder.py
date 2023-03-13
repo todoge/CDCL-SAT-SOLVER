@@ -1,41 +1,32 @@
 from typing import List
 class Encoder:
 
-    COLORS = {
-        'red': 0,
-        'white': 1,
-        'yellow': 2,
-        'blue': 3,
-        'green': 4 
-    }
-    CIGARETTES = {
-        'blend': 0,
-        'bluemaster': 1,
-        'dunhill': 2,
-        'pallmall': 3,
-        'prince': 4
-    }
-    PETS = {
+    Options = {
         'birds': 0,
         'cats': 1,
         'dogs': 2,
         'fish': 3,
-        'horse': 4
-    }
-    NATIONALITY = {
-        'dane': 0,
-        'brit': 1,
-        'german': 2,
-        'swede': 3,
-        'norwegian': 4
-    }
-
-    BEVERAGES = {
-        'milk': 0,
-        'coffee': 1,
-        'beer': 2,
-        'water': 3,
-        'tea': 4
+        'horse': 4,
+        'dane': 5,
+        'brit': 6,
+        'german': 7,
+        'swede': 8,
+        'norwegian': 9,
+        'milk': 10,
+        'coffee': 11,
+        'beer': 12,
+        'water': 13,
+        'tea': 14,
+        'red': 15,
+        'white': 16,
+        'yellow': 17,
+        'blue': 18,
+        'green': 19, 
+        'blend': 20,
+        'bluemaster': 21,
+        'dunhill': 22,
+        'pallmall': 23,
+        'prince': 24
     }
     # Hot encode some index with a given value
     def __hotEncode(self, idx:int, arr_len:int=5, value:int=1):

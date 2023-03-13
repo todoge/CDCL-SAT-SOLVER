@@ -1,6 +1,7 @@
 from typing import List
 class Clause:
-    def __init__(self, clause, var_len) -> None:
+    caused_by = 0
+    def __init__(self, clause, var_len, caused_by=0) -> None:
         self.var_len = var_len
         tmp_clause = [2] * var_len
         for literal in clause:
@@ -10,8 +11,18 @@ class Clause:
                 tmp_clause[idx] = 0
             else:
                 tmp_clause[idx] = prop
+        
+        for idx, lit in enumerate(tmp_clause):
+            if lit == 2:
+                tmp_clause[idx] = 0
         self.clause = tmp_clause
+        self.size = 0
+        for lit in self.clause:
+            if lit != 0:
+                self.size += 1
+        self.caused_by = caused_by
     
+
     # Check is assignment fulfils clause
     def isSAT(self, assignment:List[int]):
         if len(assignment) != self.var_len:
@@ -28,9 +39,16 @@ class Clause:
                 return False
         return True
 
+    def isEqual(self, other):
+        for i in self.size:
+            if other[i] != self.clause[i]:
+                return False
+        return True
+    
     # Check is clause is a unit clause
     def isUnit(self):
         flag = 0
+        print(self.clause)
         for lit in self.clause:
             if lit != 0:
                 if flag < 1:
@@ -38,37 +56,47 @@ class Clause:
                 else:
                     return False
         return True
+ 
+    # Get idx and value of unit clause
+    def get_unit(self):
+        if not self.isUnit():
+            raise Exception('Not Unit')
+        for idx, lit in enumerate(self.clause):
+            if lit != 0:
+                return idx, lit
 
     def __repr__(self):
         tkns = ['(']
+        count = self.size
         for idx, lit in enumerate(self.clause):
             if abs(lit) == 1:
                 if lit < 0:
                     tkns.append('~')
-                tkns.append(chr(idx + 97))
-                if idx < len(self.clause) - 1:
+                tkns.append(str(idx+1))
+                if count > 1:
                     tkns.append(' \/ ')
+                count -= 1
         tkns.append(')')
         return ''.join(tkns)
 
 class CNF:
-    cnf : List[Clause]
+    clauses : List[Clause]
     def __init__(self, var_len, clauses) -> None:
         self.var_len = var_len
-        self.cnf = []
+        self.clauses = []
         for clause in clauses:
-            self.cnf.append(Clause(clause, var_len))
+            self.clauses.append(Clause(clause, var_len))
     
     # Check is assignment can fulfil a CNF
     def isSAT(self, assignment:List[int]):
-        for clause in self.cnf:
+        for clause in self.clauses:
             if not clause.isSAT(assignment):
                 return False
         return True
 
     # Finds the first unit clause in the CNF
     def findUnit(self):
-        for clause in self.cnf:
+        for clause in self.clauses:
             if clause.isUnit():
                 return clause
         return None
@@ -88,8 +116,8 @@ class CNF:
 
     def __repr__(self):
         rep = ''
-        for idx, clause in enumerate(self.cnf):
+        for idx, clause in enumerate(self.clauses):
             rep += clause.__repr__()
-            if idx < len(self.cnf) - 1:
+            if idx < len(self.clauses) - 1:
                 rep += ' /\ '
         return rep

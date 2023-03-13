@@ -1,5 +1,9 @@
 from cnf import CNF
 import itertools
+from bisect import bisect_left
+import queue
+from typing import List
+from collections import deque
 class SATSolver:
     def __init__(self, var_len:int, clause_len:int):
         self.var_length = var_len
@@ -7,77 +11,40 @@ class SATSolver:
 
     def simpleSolver(self, cnf:CNF):
         print('Running SIMPLE SAT SOLVER')
-        assignments = itertools.product((0, 1), repeat=self.var_length)
+        assignments = itertools.product((-1, 1), repeat=self.var_length)
         isSolvable = False
         for assignment in assignments:
             if cnf.isSAT(assignment=assignment):
                 print(assignment, 'SOLVABLE!')
                 isSolvable = True
+                return True
             else:
-                print(assignment, 'NOT SOLVABLE')
+                # print(assignment, 'not solvable')
+                pass
         return isSolvable
     
+class ComplexSatSolver:
 
-
-from bisect import bisect_left
-import queue
-from typing import List
-from collections import deque
-
-class CNF:
-
-    def __init__(self, n_var, clauses) -> None:
+    def __init__(self, n_var, cnf:CNF) -> None:
         self.n_var = n_var
-        self.clauses = clauses
+        self.cnf = cnf
+        self.clauses = cnf.clauses
         self.assignment = [0] * (n_var + 1)
         self.matrix = []
         self.row_number_and_assigned_variable_stack = deque()
         self.row_number_of_pick_stack = deque()
-        self.create_proposition_matrix()
+        print(self.clauses)
 
     def all_assigned(self):
         return 0 not in self.assignment[1:] # no variable is unassigned 
 
-    def create_proposition_matrix(self):
-        for clause in self.clauses:
-            ## second last column is for the number of literals in the clause,
-            ## last column is for the row_number that caused the clause to be derived
-            row = [0] * (1 + self.n_var + 1 + 1)
-            row[-1] = -1
-            number_of_literals = 0
-            for literal in clause:
-                var = abs(literal)
-                prop = 1 if literal > 0 else -1
-                if row[var] != 0 and row[var] != prop:
-                    ##Setting to 0 if 2 literals in a clause is opposite
-                    row[var] = 0
-                else:
-                    number_of_literals += 1 if row[var] == 0 else 0
-                    row[var] = prop
-            row[-2] = number_of_literals
-            self.matrix.append(row)
-
-    def is_unit(self, row_number):
-        return self.matrix[row_number][-2] == 1
-    
-    def is_unit(self, row):  
-        return row[-2] == 1
-    
-    def num_of_literals(self, row_number):
-        return self.matrix[row_number][-2]
-    
-    def num_of_literals(self, row):
-        return row[-2]
-    
-    def are_identical_clauses(self, row1_number, row2):
-        return self.matrix[row1_number][:-1] == row2[:-1]
-    
     ### get the unit variable and its value (1 or -1)
     def get_unit(self, row_number):
         if self.is_unit(row_number):
             for i in range (self.n_var + 1):
                 if self.matrix[row_number][i] != 0:
                     return i, self.matrix[row_number][i]
+    
     
     def is_repeat(self, row):
         for i in range(len(self.matrix)):
@@ -88,7 +55,7 @@ class CNF:
         to_propagate_queue = deque()
         to_propagate_queue.append(row_number)
 
-        while not to_propagate_queue.empty():
+        while to_propagate_queue:
             unit_row_number = to_propagate_queue.popleft()
             assert unit_row_number >= row_number
             unit_var, unit_value = self.get_unit(unit_row_number)
@@ -124,30 +91,33 @@ class CNF:
     
     def solve(self):
         unit_row_numbers = []
-        for i in range(len(self.matrix)):
-            if self.is_unit(i):
-                unit_row_numbers.append(i)
+        for idx, clause in enumerate(self.clauses):
+            if clause.isUnit():
+                print("UNIT", clause)
+                unit_row_numbers.append(idx)
+                idx, val = clause.getUnit()
+                self.assignment[idx+1] = val
+        
+        print(self.assignment)
+        return 
+        # for unit_row in unit_row_numbers:
+        #     status, row_number = self.unit_prop(unit_row)
+        #     if status == "UNSAT":
+        #         return "UNSAT"
 
-        for unit_row in unit_row_numbers:
-            status, row_number = self.unit_prop(unit_row)
-            if status == "UNSAT":
-                return "UNSAT"
-
-        while not self.all_assigned():
-            picked_var, picked_value = self.pick_branch()
-            row = [0] * (1 + self.n_var + 1 + 1)
-            row[-1] = -1 # nothing caused this row to be derived. It is a branch pick
-            row[picked_var] = picked_value
-            row[-2] = 1 # unit clause
-            self.matrix.append(row)
-            self.assignment[picked_var] = picked_value
-            picked_var_row_number = len(self.matrix) - 1
-            self.row_number_and_assigned_variable_stack.append(picked_var_row_number, picked_var)
-            self.row_number_of_pick_stack.append(picked_var_row_number)
-
-            self.unit_prop_analyze_backtrack(picked_var, picked_var_row_number)
-
-        return "SAT"
+        # while not self.all_assigned():
+        #     picked_var, picked_value = self.pick_branch()
+        #     row = [0] * (1 + self.n_var + 1 + 1)
+        #     row[-1] = -1 # nothing caused this row to be derived. It is a branch pick
+        #     row[picked_var] = picked_value
+        #     row[-2] = 1 # unit clause
+        #     self.matrix.append(row)
+        #     self.assignment[picked_var] = picked_value
+        #     picked_var_row_number = len(self.matrix) - 1
+        #     self.row_number_and_assigned_variable_stack.append((picked_var_row_number, picked_var))
+        #     self.row_number_of_pick_stack.append(picked_var_row_number)
+        #     self.unit_prop_analyze_backtrack(picked_var, picked_var_row_number)
+        # return "SAT"
     
     # returns the variable and its value (-1 or 1) to be picked
     def pick_branch(self): # pick by occurence frequency, per length of clause

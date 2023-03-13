@@ -1,5 +1,5 @@
 from cnf import CNF
-from solver import SATSolver
+from solver import SATSolver, ComplexSatSolver
 from encoder import Encoder
 import argparse
 
@@ -53,6 +53,8 @@ if __name__ == "__main__":
     print(cnf,'\n')
     solver = SATSolver(var_len=n_vars, clause_len=n_clauses)
     isSolvable = solver.simpleSolver(cnf)
+    # solver = ComplexSatSolver(n_vars, cnf)
+    # isSolvable = solver.solve()
     print('SOLVER COMPLETED!')
     if isSolvable:
         print('CNF is SOLVABLE!!')
