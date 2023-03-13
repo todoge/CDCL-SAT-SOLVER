@@ -124,7 +124,7 @@ class CNF:
             self.row_number_and_assigned_variable_stack.append(picked_var_row_number, picked_var)
             self.row_number_of_pick_stack.append(picked_var_row_number)
 
-            unit_prop_analyze_backtrack(picked_var, picked_var_row_number)
+            self.unit_prop_analyze_backtrack(picked_var, picked_var_row_number)
 
         return "SAT"
     
