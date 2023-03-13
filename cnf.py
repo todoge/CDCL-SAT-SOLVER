@@ -124,10 +124,7 @@ class CNF:
             self.row_number_and_assigned_variable_stack.append(picked_var_row_number, picked_var)
             self.row_number_of_pick_stack.append(picked_var_row_number)
 
-            status, cause_row_number = self.unit_prop(picked_var_row_number)
-            if status == "UNSAT":
-                backtrack_to, new_clause = analyze_conflict(cause_row_number, picked_var, picked_var_row_number)
-                backtrack(backtrack_to)
+            unit_prop_analyze_backtrack(picked_var, picked_var_row_number)
 
         return "SAT"
     
@@ -165,9 +162,62 @@ class CNF:
         
         return backtrack_to, new_clause
     
-    def backtrack(self, backtrack_to):
+    def backtrack(self, backtrack_to, new_clause):
+
+        remove_n_assignments = 0
+        remove_from_incl = len(self.row_number_of_pick_stack) - 1
+        # remove all assigments that are after the backtrack_to
+        for i in range(len(self.row_number_and_assigned_variable_stack)):
+            if self.row_number_and_assigned_variable_stack[i][0] > backtrack_to:
+                remove_from_incl = min(remove_from_incl, i)
+                self.assignment[self.row_number_and_assigned_variable_stack[i][1]] = 0
+                remove_n_assignments += 1
+        assert remove_n_assignments == len(self.row_number_and_assigned_variable_stack) - remove_from_incl
+
+        # remove the assignments
+        for i in range(remove_n_assignments):
+            self.row_number_and_assigned_variable_stack.pop()
+
+
+        # remove all picks that are after the backtrack_to
+        remove_n_picks = 0
+        remove_pick_after_incl = len(self.row_number_of_pick_stack) - 1
+        for i in range(len(self.row_number_of_pick_stack)):
+            if self.row_number_of_pick_stack[i] > backtrack_to:
+                remove_pick_after_incl = min(remove_pick_after_incl, i)
+                remove_n_picks += 1
+        assert remove_n_picks == len(self.row_number_of_pick_stack) - remove_pick_after_incl
+
+        # remove the picks
+        for i in range(remove_n_picks):
+            self.row_number_of_pick_stack.pop()
         
-        return
+        # remove the clauses that are after the backtrack_to
+        self.matrix = self.matrix[:backtrack_to + 1]
+        
+
+        
+        # add the new clause
+        assert self.is_repeat(new_clause) == False
+        self.matrix.append(new_clause)
+        if self.is_unit(len(self.matrix) - 1):
+            clause_unit_var, clause_unit_value = self.get_unit(len(self.matrix) - 1)
+            self.assignment[clause_unit_var] = clause_unit_value
+            self.row_number_and_assigned_variable_stack.append((len(self.matrix) - 1, clause_unit_var))
+        
+
+                
+    def unit_prop_analyze_backtrack(self, picked_var, picked_var_row_number):
+        status, cause_row_number = self.unit_prop(picked_var_row_number)
+        if status == "UNSAT":
+            backtrack_to, new_clause = self.analyze_conflict(cause_row_number, picked_var, picked_var_row_number)
+            self.backtrack(backtrack_to, new_clause) # backtracks and addes the new_clause to the matrix
+            if (self.is_unit(backtrack_to + 1)) :
+                clause_unit_var, clause_unit_value = self.get_unit(backtrack_to + 1)
+                self.unit_prop_analyze_backtrack(clause_unit_var, backtrack_to + 1)
+            
+         
+
 
     # returns the row number of the picked branch that caused the conflict
     def find_picked_cause_row_number(self, cause_row_number):
@@ -177,7 +227,3 @@ class CNF:
                 return cause_row_number
         picked_cause_row_number = bisect_left(self.row_number_of_pick_stack, cause_row_number) - 1
         return self.row_number_of_pick_stack[picked_cause_row_number]
-
-    
-    def backtrack(self, picked_var, new_clause):
-        return
