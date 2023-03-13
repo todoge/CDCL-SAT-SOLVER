@@ -1,3 +1,4 @@
+from bisect import bisect_left
 import queue
 from typing import List
 from collections import deque
@@ -9,7 +10,8 @@ class CNF:
         self.clauses = clauses
         self.assignment = [0] * (n_var + 1)
         self.matrix = []
-        self.row_number_and_assigned_variable_stack = deque()    
+        self.row_number_and_assigned_variable_stack = deque()
+        self.row_number_of_pick_stack = deque()
         self.create_proposition_matrix()
 
     def all_assigned(self):
@@ -118,12 +120,14 @@ class CNF:
             row[-2] = 1 # unit clause
             self.matrix.append(row)
             self.assignment[picked_var] = picked_value
-            self.row_number_and_assigned_variable_stack.append((len(self.matrix) - 1, picked_var))
+            picked_var_row_number = len(self.matrix) - 1
+            self.row_number_and_assigned_variable_stack.append(picked_var_row_number, picked_var)
+            self.row_number_of_pick_stack.append(picked_var_row_number)
 
-            status, cause_row_number = self.unit_prop(len(self.matrix) - 1)
+            status, cause_row_number = self.unit_prop(picked_var_row_number)
             if status == "UNSAT":
-                new_clause = analyze_conflict(cause_row_number, picked_var)
-                backtrack(picked_var, new_clause)
+                backtrack_to, new_clause = analyze_conflict(cause_row_number, picked_var, picked_var_row_number)
+                backtrack(backtrack_to)
 
         return "SAT"
     
@@ -132,18 +136,48 @@ class CNF:
         # remember to check the existing assignment
         return 1, -1
     
-    def analyze_conflict(self, cause_row_number, picked_var):
-        causes = []
-        for row_number_and_assigned_variable in self.row_number_and_assigned_variable_stack:
-            row_number = row_number_and_assigned_variable[0]
-            assigned_variable = row_number_and_assigned_variable[1]
-            if self.matrix[row_number][assigned_variable] == self.matrix[cause_row_number][assigned_variable]:
-        causes.append((picked_var, self.assignment[picked_var]))
+    def analyze_conflict(self, cause_row_number, picked_var, picked_var_row_number):
+        row_number = cause_row_number
+        backward_implications = deque()
+        backtrack_to = 0
 
-    def get_cause_assignments(self, cause_row_number):
-        causes = []
-        if cause_row_number <
+        # while cause trace is a branch pick
+        while (row_number >= self.row_number_of_pick_stack[0]):
+            picked_cause_row_number = self.find_picked_cause_row_number(row_number)
+            if not picked_cause_row_number in backward_implications:
+                backward_implications.append(picked_cause_row_number)
+                backtrack_to = picked_cause_row_number - 1
+            row_number = self.matrix[row_number][-1] # trace the cause (row number)
+
+        # picked variable is the cause of the conflict
+        backward_implications.append(picked_var_row_number)
+
+        # produce the new clause
+        new_clause = [0] * (1 + self.n_var + 1 + 1)
+        new_clause[-1] = -3 # conflict analysis caused this clause to be derived
+        new_clause_literals = 0
+        for row_number in backward_implications:
+            assert self.matrix[row_number][-2] == 1 # unit clause
+            var, value = self.get_unit(row_number)
+            new_clause[var] = value
+            new_clause_literals += 1
+        new_clause[-2] = new_clause_literals
         
+        return backtrack_to, new_clause
+    
+    def backtrack(self, backtrack_to):
+        
+        return
+
+    # returns the row number of the picked branch that caused the conflict
+    def find_picked_cause_row_number(self, cause_row_number):
+        for i in range(len(self.row_number_of_pick_stack)):
+            if self.row_number_of_pick_stack[i] == cause_row_number:
+                assert False # should not happen
+                return cause_row_number
+        picked_cause_row_number = bisect_left(self.row_number_of_pick_stack, cause_row_number) - 1
+        return self.row_number_of_pick_stack[picked_cause_row_number]
+
     
     def backtrack(self, picked_var, new_clause):
         return
