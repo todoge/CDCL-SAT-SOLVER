@@ -131,8 +131,11 @@ class CNF:
     # returns the variable and its value (-1 or 1) to be picked
     def pick_branch(self): # pick by occurence frequency, per length of clause
         # remember to check the existing assignment
-        return 1, -1
-    
+        for i in range (1, len(self.assignment)):
+            if self.assignment[i] == 0 :
+                return i, 1
+
+
     def analyze_conflict(self, cause_row_number, picked_var, picked_var_row_number):
         row_number = cause_row_number
         backward_implications = deque()
@@ -194,7 +197,6 @@ class CNF:
         
         # remove the clauses that are after the backtrack_to
         self.matrix = self.matrix[:backtrack_to + 1]
-        
 
         
         # add the new clause
