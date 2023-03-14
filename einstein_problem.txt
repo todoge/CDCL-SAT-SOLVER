@@ -1,4 +1,0 @@
-c A sample einstein problem .cnf file.
-p cnf 25 2
-1 red bluemaster brit horse 0
-2 blue pallmall swede fish 0

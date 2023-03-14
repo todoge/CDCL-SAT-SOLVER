@@ -24,7 +24,6 @@ class SATSolver:
         return isSolvable
     
 class ComplexSatSolver:
-
     def __init__(self, n_var, cnf:CNF) -> None:
         self.n_var = n_var
         self.cnf = cnf
