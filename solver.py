@@ -16,12 +16,12 @@ class SATSolver:
         for assignment in assignments:
             if cnf.isSAT(assignment=assignment):
                 print(assignment, 'SOLVABLE!')
-                isSolvable = True
+                # isSolvable = True
                 return True
             else:
                 # print(assignment, 'not solvable')
                 pass
-        return isSolvable
+        return False
     
 class ComplexSatSolver:
     def __init__(self, n_var, cnf:CNF) -> None:
