@@ -63,26 +63,39 @@ class ComplexSatSolver:
             self.clauses.pop(i - adjust)
             adjust += 1
                  
+    def check_literal(self, var, val):
+        """
+        check if a literal is consistent with assignment.
+        return 0 if the literal is not assigned
+        return 1 if the literal is assigned to the same value
+        return -1 if the literal is assigned to the opposite value
+        """
+        if self.assignment[var] == 0:
+            return 0
+        elif self.assignment[var] == val:
+            return 1
+        else:
+            return -1
 
-    def check_value(self, var, value):
-        """
-        check if the assignment of var is value
-        """
-        return self.assignment[var] == value
     
-    def check_clause(self, clause):
+    def resolve_clause(self, clause):
         """
-        check if the clause is possibly satisfiable, i.e. not unsatisfiable
-        if all variables of the clause is different from the assignment, return False
-        otherwise return True
+        resolve a clause with the current assignment
+        return (derived unit clause, True) if a unit clause is derived,
+        return (this clause, False) if conflict is found) 
+        otherwise return (None, True)
+    
         """
-        no_of_vars = clause.count_non_zero()
+        no_of_literals = clause.count_non_zero()
+        clause_copy = clause.copy()
         for i in range(1, self.n_var + 1):
-            if clause[i] != 0 and self.check_value(i, clause[i]):
-                return True
-            elif clause[i] != 0 and self.check_value(i, -clause[i]):
-                no_of_vars -= 1
-        return no_of_vars != 0
+            # counts the number of conflicting literals, resolves.
+            if clause[i] != 0 and self.check_literal(i, clause[i]) == -1:
+                no_of_literals -= 1
+                clause_copy[i] = 0
+            elif clause[i]: # if the literal is assigned to the same value
+                return (None, True)
+        if no_of_literals == 1:
     
 
     def unit_propagate(self):
@@ -92,6 +105,11 @@ class ComplexSatSolver:
          """
          while True:
               for clause in [x for x in self.clauses.append(self.learned_clauses)]:
+                possibly_sat = self.check_clause(clause)
+                if not possibly_sat:
+                    return self.clause.index(clause)
+                
+
                   
                   
                    
