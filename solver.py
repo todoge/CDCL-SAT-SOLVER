@@ -23,6 +23,19 @@ class SATSolver:
                 pass
         return False
     
+
+
+
+###### Conflict analysis: 1) closest to choice point, 2) first UIP
+### first UIP: first unit clause that is not a descendant of the choice point
+### impl
+### closest to choice point: the clause that is closest to the choice point
+
+### multiple clauses could cause the same unit clause. So the choice of caused by saving is also affective
+### <assignment, level.> + clause no. -> <assignment, level.> 
+### <assignment, level.>.is_pick
+## removing learnt clauses: 
+    
 class ComplexSatSolver:
     # all literals start from 1
 
@@ -66,37 +79,39 @@ class ComplexSatSolver:
     def check_literal(self, var, val):
         """
         check if a literal is consistent with assignment.
-        return 0 if the literal is not assigned
-        return 1 if the literal is assigned to the same value
-        return -1 if the literal is assigned to the opposite value
+        return value of the literal if it is not assigned
+        return value of the literal if it is assigned to the same value
+        return 0 if it is assigned to the opposite value
         """
         if self.assignment[var] == 0:
-            return 0
+            return val
         elif self.assignment[var] == val:
-            return 1
+            return val
         else:
-            return -1
+            return 0
+
+    ### when checking a clause against an assignment. if any of it contains 0, nothing derived.
+    ### if all of them are 1, then the clause is satisfied. nothing derived.
+    ### if any of them is -1, then that literal is resolved. 0 is derived.
 
     
     def resolve_clause(self, clause):
         """
         resolve a clause with the current assignment
         return (derived unit clause, True) if a unit clause is derived,
-        return (this clause, False) if conflict is found) 
+        return (this clause, False) if conflict is found.
         otherwise return (None, True)
     
         """
-        no_of_literals = clause.count_non_zero()
-        clause_copy = clause.copy()
-        for i in range(1, self.n_var + 1):
-            # counts the number of conflicting literals, resolves.
-            if clause[i] != 0 and self.check_literal(i, clause[i]) == -1:
-                no_of_literals -= 1
-                clause_copy[i] = 0
-            elif clause[i]: # if the literal is assigned to the same value
-                return (None, True)
-        if no_of_literals == 1:
-    
+        mapped = list(map(self.check_literal, clause))
+        derived_is_unit = True if sum( x != 0 for x in mapped) == 1 else False
+        derived_is_conflict = True if sum (x == 0 for x in mapped) == len(mapped) else False
+        if derived_is_unit:
+            return (mapped, True)
+        elif derived_is_conflict :
+            return (clause, False)
+        else :
+            return (None, True)
 
     def unit_propagate(self):
          """
@@ -105,9 +120,8 @@ class ComplexSatSolver:
          """
          while True:
               for clause in [x for x in self.clauses.append(self.learned_clauses)]:
-                possibly_sat = self.check_clause(clause)
-                if not possibly_sat:
-                    return self.clause.index(clause)
+                clause, is_consistent = self.resolve_clause(clause)
+                
                 
 
                   
