@@ -25,6 +25,17 @@ class SATSolver:
     
 
 
+class UnitPropNode:
+    def __init__(self, var, val, level):
+        self.var = var
+        self.val = val
+        self.level = level
+    
+class ImplicationGraph:
+    def __init__(self):
+        self.predecessors = {} # (UnitPropNode) -> list of (UnitPropNode). Only one clause can cause a unit clause
+        self.successors = {} # (UnitPropNode) -> (list of (UnitPropNode), clause). A unit clause can affect multiple clauses 
+        self.picked_props = set() # (UnitPropNode)
 
 ###### Conflict analysis: 1) closest to choice point, 2) first UIP
 ### first UIP: first unit clause that is not a descendant of the choice point
@@ -41,26 +52,34 @@ class ComplexSatSolver:
 
     def __init__(self, n_var, clauses) -> None:
             self.assignment = [0] * (n_var + 1)
+            self.unit_level = {} # (var, val) -> level
             self.picked_literals = set()
             self.level_to_pick = {}
-            self.level_to_propList = {}
+            self.level_to_propList = {} # level_idx -> list of (var, val)
             self.clauses = clauses
             self.learned_clauses = []
+            self.impl_graph = {} # (var, val) -> list of ((var, val), level)
 
     def is_unit(self, clause):
         return clause.count_non_zero() == 1
     
     def get_unit(self, clause):
+        '''
+        return the unit literal and its value
+        '''
         for i in range (1, self.n_var + 1):
             if clause[i] != 0:
                 return i, clause[i]
 
+    # save nodes as level 0.
+
     def preprocess(self):
         """
         preprocess the clauses
-        removes unit clasues by assigning them
+        removes unit clasues, checks consistency, assignss them and update level 0
         return False if conflict is found, otherwise return True
         """    
+        proplist = []
         unit_clauses_idxs = []
         for i in range(1, len(self.clauses) + 1):
             clause = self.clauses[i]
@@ -69,12 +88,14 @@ class ComplexSatSolver:
                 var, value = self.get_unit(clause)
                 if self.assignment[var] == 0:
                     self.assignment[var] = value
+                    proplist.append((var, value))
                 elif self.assignment[var] != value:
                     return False
         adjust = 0
         for i in unit_clauses_idxs[::-1]:
             self.clauses.pop(i - adjust)
             adjust += 1
+        self.level_to_propList[0] = proplist
                  
     def check_literal(self, var, val):
         """
@@ -98,7 +119,7 @@ class ComplexSatSolver:
     def resolve_clause(self, clause):
         """
         resolve a clause with the current assignment
-        return (derived unit clause, True) if a unit clause is derived,
+        return (derived unit clause, True) if a fresh unit clause is derived,
         return (this clause, False) if conflict is found.
         otherwise return (None, True)
     
@@ -107,7 +128,11 @@ class ComplexSatSolver:
         derived_is_unit = True if sum( x != 0 for x in mapped) == 1 else False
         derived_is_conflict = True if sum (x == 0 for x in mapped) == len(mapped) else False
         if derived_is_unit:
-            return (mapped, True)
+            var, val = self.get_unit(mapped)
+            if self.assignment[var] == 0:
+                return (mapped, True)
+            else:
+                return (None, True)
         elif derived_is_conflict :
             return (clause, False)
         else :
@@ -116,11 +141,36 @@ class ComplexSatSolver:
     def unit_propagate(self):
          """
          unit propagation.
-         returns clause number if conflict is found, otherwise returns None
+         returns clause if conflict is found, otherwise returns None
          """
+         level_proplist = self.level_to_propList[self.level] if self.level < len(self.level_to_propList) else []
          while True:
-              for clause in [x for x in self.clauses.append(self.learned_clauses)]:
-                clause, is_consistent = self.resolve_clause(clause)
+            fresh_derived = False
+            # for each clause, check if something can be derived.
+            for clause in [x for x in self.clauses.append(self.learned_clauses)]:
+                derived_clause, is_consistent = self.resolve_clause(clause)
+                if is_consistent:
+                    ## fresh unit clause is derived
+                    if derived_clause is not None:
+                        unit_var, unit_val = self.get_unit(derived_clause)
+                        self.assignment[unit_var] = unit_val ## => same clause will not be derived again
+                        # TODO: add to implication graph
+                        self.implication_graph[(unit_var, unit_val)] = 
+                        fresh_derived = True
+                        self.level_to_propList.append((unit_var, unit_val))
+                    else :
+                        continue
+                else: # conflict is found
+                    return clause
+                
+            # no new unit clause is derived
+            if not fresh_derived:
+                self.level_to_propList[self.level] = level_proplist
+                return None
+            else : # new unit clause is derived so run unit propagation again
+                continue
+
+
                 
                 
 
