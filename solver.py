@@ -4,6 +4,9 @@ from bisect import bisect_left
 import queue
 from typing import List
 from collections import deque
+from dataclasses import dataclass, FrozenInstanceError
+
+
 class SATSolver:
     def __init__(self, var_len:int, clause_len:int):
         self.var_length = var_len
@@ -22,20 +25,92 @@ class SATSolver:
                 # print(assignment, 'not solvable')
                 pass
         return False
-    
 
-
+@dataclass(frozen=True)
 class UnitPropNode:
+    var : int
+    val : int
+    level : int
+
     def __init__(self, var, val, level):
         self.var = var
         self.val = val
         self.level = level
+
+    def __hash__(self):
+        return hash((self.var, self.val, self.level))
     
+    def __eq__(self, other):
+        return (self.var, self.val, self.level) == (other.var, other.val, other.level)
+    
+
+## UnitPropNode = (var, val, level)
 class ImplicationGraph:
     def __init__(self):
         self.predecessors = {} # (UnitPropNode) -> list of (UnitPropNode). Only one clause can cause a unit clause
-        self.successors = {} # (UnitPropNode) -> (list of (UnitPropNode), clause). A unit clause can affect multiple clauses 
+        self.successors = {} # (UnitPropNode) -> list of (clause, (UnitPropNode)). A unit clause can affect multiple clauses. clause assigned to edge 
         self.picked_props = set() # (UnitPropNode)
+        self.props_to_node = {} # (var, val) -> UnitPropNode
+
+    #consider cause_clause as a
+    def add_node(self, var, val, level, cause_clause, is_pick):
+        '''
+        var, val, level: the unitPropNode
+        cause_clause: the clause that caused the unit clause
+        is_pick: whether the unit clause is picked
+
+        '''
+        node = UnitPropNode(var, val, level)
+        # initialize
+        self.predecessors[node] = []
+        self.successors[node] = []
+
+        cause_clause_cp = cause_clause.copy()
+        cause_clause_cp[node.var] = 0
+        causes_props = [(i,e) for i, e in enumerate(cause_clause_cp) if e != 0]
+        for (var, val) in causes_props:
+            cause_node = self.props_to_node[(var, val)]
+            self.predecessors[node].append(cause_node)
+            self.successors[cause_node].append((cause_clause, node))
+        self.props_to_node[(var, val)] = node
+        if is_pick:
+            self.picked_props.add(node)
+
+    # need not add conlict node
+    def get_last_UIP_cut(self, clause, level): 
+        '''
+        clause: a clause that led to the conflict
+        return the last UIP cut clause to be learned
+        '''
+        clause_literals_list= [(i, -e) for i, e in enumerate(clause) if e != 0] # (var, val) that led to the conflict
+        stack = []
+        visited = set()
+        new_learned_clause = [0] * (self.var_length + 1)
+
+        # populate stack with first causes
+        for (var, val) in clause_literals_list:
+            node = self.props_to_node[(var, val)]
+            stack.append(node)
+          
+        while (len(stack) > 1):
+            node = stack.pop()
+            if node in visited:
+                continue
+            visited.add(node)
+            if node in self.picked_props or node.level != level:
+                if (node in self.picked_props):
+                    assert node.level == level
+                
+                cause_var, cause_val = node.var, node.val
+                new_learned_clause[cause_var] = -cause_val # learn the opposite of the picked literal
+
+            else:
+                for cause_prop in self.predecessors[node]:
+                    if cause_prop not in visited:
+                        stack.append(cause_prop)
+
+        return new_learned_clause
+
 
 ###### Conflict analysis: 1) closest to choice point, 2) first UIP
 ### first UIP: first unit clause that is not a descendant of the choice point
@@ -56,7 +131,7 @@ class ComplexSatSolver:
             self.picked_literals = set()
             self.level_to_pick = {}
             self.level_to_propList = {} # level_idx -> list of (var, val)
-            self.clauses = clauses
+            self.clauses = clauses # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
             self.learned_clauses = []
             self.impl_graph = {} # (var, val) -> list of ((var, val), level)
 
@@ -155,6 +230,7 @@ class ComplexSatSolver:
                         unit_var, unit_val = self.get_unit(derived_clause)
                         self.assignment[unit_var] = unit_val ## => same clause will not be derived again
                         # TODO: add to implication graph
+
                         self.implication_graph[(unit_var, unit_val)] = 
                         fresh_derived = True
                         self.level_to_propList.append((unit_var, unit_val))
