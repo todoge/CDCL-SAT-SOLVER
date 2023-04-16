@@ -26,7 +26,6 @@ class SATSolver:
                 pass
         return False
 
-@dataclass(frozen=True)
 class UnitPropNode:
     var : int
     val : int
@@ -43,8 +42,6 @@ class UnitPropNode:
     def __eq__(self, other):
         return (self.var, self.val, self.level) == (other.var, other.val, other.level)
     
-
-## UnitPropNode = (var, val, level)
 class ImplicationGraph:
     def __init__(self):
         self.predecessors = {} # (UnitPropNode) -> list of (UnitPropNode). Only one clause can cause a unit clause
@@ -126,14 +123,17 @@ class ComplexSatSolver:
     # all literals start from 1
 
     def __init__(self, n_var, clauses) -> None:
-            self.assignment = [0] * (n_var + 1)
+            self.assignment:List[int] = [0] * (n_var + 1) # idx: var, val: 1 or -1
             self.unit_level = {} # (var, val) -> level
-            self.picked_literals = set()
-            self.level_to_pick = {}
-            self.level_to_propList = {} # level_idx -> list of (var, val)
-            self.clauses = clauses # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
-            self.learned_clauses = []
+            self.picked_literals = set() # (var, val)
+            self.level_to_pick = list() # level_idx -> (var, val) # :List[(int, int)]
+            self.level_to_propList= list() # level_idx -> list of (var, val) #List[List[(int,int)]]
+            self.clauses = clauses # List[List[int]]
+            # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
+            self.learned_clauses = list() # List[List[int]]
+            # list of learned clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
             self.impl_graph = {} # (var, val) -> list of ((var, val), level)
+            self.level = 0
 
     def is_unit(self, clause):
         return clause.count_non_zero() == 1
@@ -151,12 +151,14 @@ class ComplexSatSolver:
     def preprocess(self):
         """
         preprocess the clauses
-        removes unit clasues, checks consistency, assignss them and update level 0
+        removes unit clasues, checks consistency, assigns them.
+        unitpropagate and update level 0
         return False if conflict is found, otherwise return True
         """    
-        proplist = []
-        unit_clauses_idxs = []
-        for i in range(1, len(self.clauses) + 1):
+        proplist = list() # a list of (var, val) that are assigned at level 0, i.e. given #:List[(int, int)] 
+        unit_clauses_idxs:List(int) = list() # a list of indexes of unit clauses in self.clauses
+        # for every clause, if unit clause, assign it. if conflict, return False
+        for i in range(0, len(self.clauses)):
             clause = self.clauses[i]
             if self.is_unit(clause):
                 unit_clauses_idxs.append(i)
@@ -166,11 +168,18 @@ class ComplexSatSolver:
                     proplist.append((var, value))
                 elif self.assignment[var] != value:
                     return False
+                
+        # remove unit clauses from clauses
         adjust = 0
         for i in unit_clauses_idxs[::-1]:
             self.clauses.pop(i - adjust)
             adjust += 1
-        self.level_to_propList[0] = proplist
+
+        # unit propagate and update level 0
+        # TODO
+        
+        # update level 0
+        self.level_to_propList[self.level] = proplist
                  
     def check_literal(self, var, val):
         """
@@ -199,9 +208,9 @@ class ComplexSatSolver:
         otherwise return (None, True)
     
         """
-        mapped = list(map(self.check_literal, clause))
-        derived_is_unit = True if sum( x != 0 for x in mapped) == 1 else False
-        derived_is_conflict = True if sum (x == 0 for x in mapped) == len(mapped) else False
+        mapped = list(map(self.check_literal, clause))  # conlifcting = 0 is resolved. non-zero val is unassigned or consistent.
+        derived_is_unit = True if sum( x != 0 for x in mapped) == 1 else False # if only one literal is not resolved, then it is a unit clause
+        derived_is_conflict = True if sum (x == 0 for x in mapped) == len(mapped) else False # if all literals are resolved, then it is a conflict
         if derived_is_unit:
             var, val = self.get_unit(mapped)
             if self.assignment[var] == 0:
@@ -213,12 +222,18 @@ class ComplexSatSolver:
         else :
             return (None, True)
 
-    def unit_propagate(self):
+    def unit_propagate(self, picked_literal):
          """
-         unit propagation.
+         picked_literal: (var, val) or None
+         unit propagation. assigns unit clauses and update implication graph
          returns clause if conflict is found, otherwise returns None
          """
-         level_proplist = self.level_to_propList[self.level] if self.level < len(self.level_to_propList) else []
+        if picked_literal is not None:
+            self.assignment[picked_literal[0]] = picked_literal[1]
+            self.level_to_propList[self.level].append(picked_literal)
+        
+        
+        level_proplist:List[(int,int)] = self.level_to_propList[self.level] if self.level < len(self.level_to_propList) else []
          while True:
             fresh_derived = False
             # for each clause, check if something can be derived.
@@ -240,7 +255,7 @@ class ComplexSatSolver:
                     return clause
                 
             # no new unit clause is derived
-            if not fresh_derived:
+            if not fresh_derived: 
                 self.level_to_propList[self.level] = level_proplist
                 return None
             else : # new unit clause is derived so run unit propagation again
