@@ -24,22 +24,47 @@ class FormulaGenerator:
         clause = [a*b for a,b in zip(variables,clause_type)]
         return clause
 
-    # Generate a random forumla and check if it is SAT or UNSAT
-    def getRandomFormulaSAT(self):
+    # Generate a random forumla and get the number of satisfying assignments
+    def getModelCount(self):
+        self.solver = Solver()
         for _ in range(ceil(self.r*self.n)):
             self.solver.add_clause(self.__getRandomClause())
-        isSAT = self.solver.is_satisfiable()
-        # print(self.solver.nb_clauses(), self.solver.nb_vars(), isSAT)
-        self.solver = Solver()
-        return isSAT
-
-    # Get SAT Probability
-    def getSATProbability(self, numOfFormulas):
-        numOfSATs = 0
+        count = 0
+        # while True:
+        #     isSAT, SOL = self.solver.solve()
+        #     if isSAT:
+        #         count += 1
+        #         self.solver.add_clause(SOL)
+        #     else:
+        #         break
+        # Iterate over the solutions
+        while True:
+            # Try to find a solution
+            isSAT, SOL = self.solver.solve()
+            # If no more solutions exist, exit the loop
+            if isSAT != True:
+                break
+            
+            # Increment the number of solutions found
+            count += 1
+            # print(isSAT, self.solver.is_satisfiable())
+            # print(SOL)
+            # Add a blocking clause to exclude the current solution
+            blocking_clause = [-lit if SOL[lit] else lit
+                            for lit in range(1, len(SOL))]
+            self.solver.add_clause(blocking_clause)
+            # print(blocking_clause)
+            # print(self.solver.nb_clauses())
+            # break
+            # print(self.solver.nb_clauses())
+        # print(count)
+        return count
+    # Get average number of satisfying assignments
+    def getSATCount(self, numOfFormulas):
+        count = 0
         for _ in range(numOfFormulas):
-            if self.getRandomFormulaSAT():
-                numOfSATs += 1
-        return numOfSATs / numOfFormulas
+            count += self.getModelCount()
+        return count / numOfFormulas
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -60,59 +85,30 @@ if __name__ == "__main__":
     print('Parameters:', 'kstart={}'.format(kstart), 'kend={}'.format(kend),\
            'r={}'.format(rend), 'r-interval={}'.format(rinterval), 'numOfForms={}'.format(numOfForms), 'n={}'.format(n))
     # Set the title of graph
-    plt.suptitle("$F_{}({}, {}r)$ against r".format(','.join(str(x) for x in range(kstart, kend+1)), n, n),fontsize=18)
+    plt.suptitle("#Models vs r for k={}".format(','.join(str(x) for x in range(kstart, kend+1)), n, n),fontsize=18)
     plt.xlabel("r: Clause Density (#Clauses/#Variables)")
-    plt.ylabel("Probability of Satisfiability")
+    plt.ylabel("#Models")
     plt.xlim([rstart, rend+rinterval])
-    plt.ylim([0, 1.2])
+    # plt.ylim([0, ])
     legend = []
     # Start Timer
     tic = time.perf_counter()
     # Plot the graph
     for k in range(kstart, kend+1):
         legend.append('k={}'.format(k))
-        # Track the first time probability < 1 and probability = 0
-        isOne, isZero = True, False
         xpoints = []
         ypoints = []
         for r_val in np.arange(rstart, rend+rinterval, rinterval):
             # Get Probability for r_val, k and n
             generator = FormulaGenerator(k, r_val, n)
-            SAT_prob = generator.getSATProbability(numOfForms)
-            if isOne and SAT_prob < 1:
-                prev_x, prev_y = xpoints[-1], ypoints[-1]
-                plt.text(prev_x, prev_y, '({:.2f}, {:.2f})'.format(prev_x, prev_y), color='red')
-                isOne = False
-            if not isZero and SAT_prob == 0:
-                plt.text(r_val, SAT_prob, '({:.2f}, {:.2f})'.format(r_val, SAT_prob), color='red', verticalalignment='bottom')
-                isZero = True
-                
+            count = generator.getSATCount(numOfForms)
             xpoints.append(r_val)
-            ypoints.append(SAT_prob)
+            ypoints.append(count)
         plt.plot(xpoints, ypoints)
     # Stop timer
     toc = time.perf_counter()
-    plt.title('#FORMS={}, r-interval={}, Time-taken={:0.4f}s'.format(numOfForms, rinterval, toc - tic),fontsize=10)
+    plt.title('#FORMS={}, r-interval={}, Time-taken={:0.2f}s n={}'.format(numOfForms, rinterval, toc - tic, n),fontsize=10)
     plt.grid()
     plt.legend(legend)
-    plt.savefig('{}cnf-n{}.png'.format(k,n))
+    plt.savefig('{}-{}cnf-n{}-assignments.png'.format(kstart,kend, n))
     
-
-    # plt.title('Solve time vs r',fontsize=18)
-    # plt.xlabel("n")
-    # plt.ylabel("Time taken (s)")
-
-    # xpoints = [25,50,75,100,125,150]
-    # ypoints = [2.06, 4.017, 6.03, 8.18, 12.279, 31.5]
-    # plt.xlim([20, 160])
-    # plt.plot(xpoints, ypoints)
-
-    # xpoints = [25,35,40,45,50]
-    # ypoints = [4.65, 7.73, 11.287, 13.539, 22.955]
-    # plt.plot(xpoints, ypoints)
-
-    # xpoints = [25,30,35,40]
-    # ypoints = [30, 80.3, 156, 579.8]
-    # plt.plot(xpoints, ypoints)
-    # plt.legend(['k=3','k=4','k=5'])
-    # plt.savefig('compare_time.png')
