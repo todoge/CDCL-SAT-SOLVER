@@ -2,7 +2,7 @@ from cnf import CNF
 import itertools
 from bisect import bisect_left
 import queue
-from typing import List
+from typing import List, Optional
 from collections import deque
 from dataclasses import dataclass, FrozenInstanceError
 
@@ -50,27 +50,27 @@ class ImplicationGraph:
         self.props_to_node = {} # (var, val) -> UnitPropNode
 
     #consider cause_clause as a
-    def add_node(self, var, val, level, cause_clause, is_pick):
+    def add_node(self, var, val, level, cause_clause = None):
         '''
         var, val, level: the unitPropNode
         cause_clause: the clause that caused the unit clause
-        is_pick: whether the unit clause is picked
-
         '''
         node = UnitPropNode(var, val, level)
-        # initialize
-        self.predecessors[node] = []
-        self.successors[node] = []
+        if self.props_to_node.get((var, val)) is None:
+            # initialize
+            self.props_to_node[(var, val)] = node
+            self.predecessors[node] = list()
+            self.successors[node] = list()
 
-        cause_clause_cp = cause_clause.copy()
-        cause_clause_cp[node.var] = 0
-        causes_props = [(i,e) for i, e in enumerate(cause_clause_cp) if e != 0]
-        for (var, val) in causes_props:
-            cause_node = self.props_to_node[(var, val)]
-            self.predecessors[node].append(cause_node)
-            self.successors[cause_node].append((cause_clause, node))
-        self.props_to_node[(var, val)] = node
-        if is_pick:
+        if cause_clause is not None:
+            cause_clause_cp = cause_clause.copy()
+            cause_clause_cp[node.var] = 0
+            causes_props = [(i,e) for i, e in enumerate(cause_clause_cp) if e != 0]
+            for (var, val) in causes_props:
+                cause_node = self.props_to_node[(var, val)]
+                self.predecessors[node].append(cause_node)
+                self.successors[cause_node].append((cause_clause, node))
+        else:
             self.picked_props.add(node)
 
     # need not add conlict node
@@ -123,20 +123,22 @@ class ComplexSatSolver:
     # all literals start from 1
 
     def __init__(self, n_var, clauses) -> None:
-            self.assignment:List[int] = [0] * (n_var + 1) # idx: var, val: 1 or -1
-            self.unit_level = {} # (var, val) -> level
-            self.picked_literals = set() # (var, val)
-            self.level_to_pick = list() # level_idx -> (var, val) # :List[(int, int)]
-            self.level_to_propList= list() # level_idx -> list of (var, val) #List[List[(int,int)]]
-            self.clauses = clauses # List[List[int]]
-            # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
-            self.learned_clauses = list() # List[List[int]]
-            # list of learned clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
-            self.impl_graph = {} # (var, val) -> list of ((var, val), level)
-            self.level = 0
+        self.assignment:List[int] = [0] * (n_var + 1) # idx: var, val: 1 or -1
+        self.picked_literals = set() # (var, val)
+        self.level_to_pick = list() # level_idx -> (var, val) # :List[(int, int)]
+        self.level_to_propList= list() # level_idx -> list of (var, val) #List[List[(int,int)]]
+        self.clauses = clauses # List[List[int]]
+        # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
+        self.learned_clauses = list() # List[List[int]]
+        # list of learned clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
+        self.level = 0
+        self.impl_graph = ImplicationGraph()
 
     def is_unit(self, clause):
-        return clause.count_non_zero() == 1
+        count = 0
+        for l in clause :
+            if l != 0:
+                count += 1
     
     def get_unit(self, clause):
         '''
@@ -204,7 +206,7 @@ class ComplexSatSolver:
         """
         resolve a clause with the current assignment
         return (derived unit clause, True) if a fresh unit clause is derived,
-        return (this clause, False) if conflict is found.
+        return (None, False) if conflict is found.
         otherwise return (None, True)
     
         """
@@ -218,45 +220,49 @@ class ComplexSatSolver:
             else:
                 return (None, True)
         elif derived_is_conflict :
-            return (clause, False)
+            return (None, False)
         else :
             return (None, True)
-
+        
     def unit_propagate(self, picked_literal):
-         """
-         picked_literal: (var, val) or None
-         unit propagation. assigns unit clauses and update implication graph
-         returns clause if conflict is found, otherwise returns None
-         """
-        if picked_literal is not None:
-            self.assignment[picked_literal[0]] = picked_literal[1]
-            self.level_to_propList[self.level].append(picked_literal)
+        """
+        assumes level_to_pick, assignment, level, level_to_proplist are already updated.
+
+        picked_literal: (var, val) or None
+        unit propagation. assigns unit clauses and update implication graph
+        returns clause if conflict is found, otherwise returns None
+        """
+        self.level_to_propList[self.level] = self.level_to_propList[self.level] if self.level_to_propList[self.level] is not None else list()
+
+        # there is a picked literal
+        if picked_literal is not None:        
+            # add to implication graph
+            self.impl_graph.add_node(picked_literal[0], picked_literal[1], self.level)
         
-        
-        level_proplist:List[(int,int)] = self.level_to_propList[self.level] if self.level < len(self.level_to_propList) else []
-         while True:
+        # List[(int,int)] 
+        while True:
             fresh_derived = False
             # for each clause, check if something can be derived.
             for clause in [x for x in self.clauses.append(self.learned_clauses)]:
+                # (fresh derived unit clause, True) or (None, True) or (clause, False)
                 derived_clause, is_consistent = self.resolve_clause(clause)
                 if is_consistent:
                     ## fresh unit clause is derived
                     if derived_clause is not None:
-                        unit_var, unit_val = self.get_unit(derived_clause)
-                        self.assignment[unit_var] = unit_val ## => same clause will not be derived again
-                        # TODO: add to implication graph
-
-                        self.implication_graph[(unit_var, unit_val)] = 
                         fresh_derived = True
-                        self.level_to_propList.append((unit_var, unit_val))
+                        unit_var, unit_val = self.get_unit(derived_clause)
+                        # assign the unit clause
+                        self.assignment[unit_var] = unit_val ## => same clause will not be derived again
+                        # add to implication graph
+                        self.impl_graph.add_node(unit_var, unit_val, self.level, clause)
                     else :
+                        # no fresh unit clause is derived
                         continue
                 else: # conflict is found
                     return clause
                 
             # no new unit clause is derived
             if not fresh_derived: 
-                self.level_to_propList[self.level] = level_proplist
                 return None
             else : # new unit clause is derived so run unit propagation again
                 continue
