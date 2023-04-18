@@ -50,7 +50,7 @@ class ImplicationGraph:
         self.props_to_node = {} # (var, val) -> UnitPropNode
 
     #consider cause_clause as a
-    def add_node(self, var, val, level, cause_clause = None):
+    def add_node(self, var, val, level, cause_clause = None, is_pick = False):
         '''
         var, val, level: the unitPropNode
         cause_clause: the clause that caused the unit clause
@@ -62,7 +62,7 @@ class ImplicationGraph:
             self.predecessors[node] = list()
             self.successors[node] = list()
 
-        if cause_clause is not None:
+        if not is_pick and cause_clause is not None:
             cause_clause_cp = cause_clause.copy()
             cause_clause_cp[node.var] = 0
             causes_props = [(i,e) for i, e in enumerate(cause_clause_cp) if e != 0]
@@ -70,8 +70,10 @@ class ImplicationGraph:
                 cause_node = self.props_to_node[(var, val)]
                 self.predecessors[node].append(cause_node)
                 self.successors[cause_node].append((cause_clause, node))
-        else:
+        elif is_pick:
             self.picked_props.add(node)
+        else : # is not a pick, and no cause clause. i.e. given by the problem
+            pass
 
     # need not add conlict node
     def get_last_UIP_cut(self, clause, level): 
@@ -154,7 +156,7 @@ class ComplexSatSolver:
         """
         preprocess the clauses
         removes unit clasues, checks consistency, assigns them.
-        unitpropagate and update level 0
+        update level_to_pick, level_to_propList, assignment, clauses
         return False if conflict is found, otherwise return True
         """    
         proplist = list() # a list of (var, val) that are assigned at level 0, i.e. given #:List[(int, int)] 
@@ -177,11 +179,13 @@ class ComplexSatSolver:
             self.clauses.pop(i - adjust)
             adjust += 1
 
-        # unit propagate and update level 0
-        # TODO
-        
-        # update level 0
+        # update and unit propagate
+        self.level_to_pick.append(None)
         self.level_to_propList[self.level] = proplist
+        for (var, val) in proplist:
+            self.impl_graph.add_node(var, val, self.level)
+        return True
+
                  
     def check_literal(self, var, val):
         """
@@ -224,21 +228,14 @@ class ComplexSatSolver:
         else :
             return (None, True)
         
-    def unit_propagate(self, picked_literal):
+    def unit_propagate(self):
         """
-        assumes level_to_pick, assignment, level, level_to_proplist are already updated.
+        assumes level_to_pick, assignment, level, level_to_proplist are already instantiated/updated. and picked_literal added to implication graph
 
         picked_literal: (var, val) or None
         unit propagation. assigns unit clauses and update implication graph
         returns clause if conflict is found, otherwise returns None
         """
-        self.level_to_propList[self.level] = self.level_to_propList[self.level] if self.level_to_propList[self.level] is not None else list()
-
-        # there is a picked literal
-        if picked_literal is not None:        
-            # add to implication graph
-            self.impl_graph.add_node(picked_literal[0], picked_literal[1], self.level)
-        
         # List[(int,int)] 
         while True:
             fresh_derived = False
@@ -253,6 +250,8 @@ class ComplexSatSolver:
                         unit_var, unit_val = self.get_unit(derived_clause)
                         # assign the unit clause
                         self.assignment[unit_var] = unit_val ## => same clause will not be derived again
+                        # update level_to_propList
+                        self.level_to_propList[self.level].append((unit_var, unit_val))
                         # add to implication graph
                         self.impl_graph.add_node(unit_var, unit_val, self.level, clause)
                     else :
@@ -266,6 +265,77 @@ class ComplexSatSolver:
                 return None
             else : # new unit clause is derived so run unit propagation again
                 continue
+
+
+
+    def solve(self):
+        """
+        preprocess the clauses
+        if no conflict is found, run DPLL
+        """
+        # preprocess
+        if not self.preprocess():
+            return False
+        while True:
+            # unit propagate
+            conflict_clause = self.unit_propagate()
+            
+            if conflict_clause is not None:
+                if self.level == 0:
+                    return False
+                
+                # conflict is found
+                learned_clause = self.impl_graph.get_last_UIP_cut(conflict_clause, self.level)
+                self.learned_clauses.append(learned_clause)
+
+                # backtrack
+                self.level -= 1
+
+                # TODO: backtrack to the level before the learned clause is derived
+                #self.backtrack(self.level) deals with level_to_pick, level_to_propList, assignment
+
+            else:
+                # no conflict is found
+                # check if all variables are assigned
+                if self.all_assigned():
+                    return True
+                else:
+                    #increase level
+                    self.level += 1
+                    # pick a variable
+                    picked_literal = self.pick()
+                    # add to level_to_pick
+                    self.level_to_pick.append(picked_literal)
+                    # add to assignment
+                    self.assignment[picked_literal[0]] = picked_literal[1]
+                    # add to level_to_propList
+                    self.level_to_propList[self.level] = list()
+                    self.level_to_propList[self.level].append(picked_literal)
+                    # add to implication graph
+                    self.impl_graph.add_node(picked_literal[0], picked_literal[1], self.level, None)
+                    # run unit propagation
+                    continue
+
+    def backtrack(self, level):
+        """
+        backtrack to the given level. i.e. the level before the learned clause is derived
+        """
+        remove_level = level+1
+        # remove the last level_to_pick
+        self.level_to_pick.pop()
+        # todo: assert
+
+        # remove the last level_to_propList
+        propList = self.level_to_propList[self.level]
+        self.level_to_propList.pop(self.level)
+
+        # remove the assignments
+        for var, val in propList:
+            self.assignment[var] = 0
+
+        # remove the implication graph nodes
+        #TODO: remove the nodes in the implication graph
+
 
 
                 
