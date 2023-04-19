@@ -23,7 +23,7 @@ def complexSolverClauses(n_vars, clauses):
         complex_clauses.add(complex_solver_clause(n_vars, clause))
     return complex_clauses
 
-def complex_solver_clause(n_vars, clause):
+def complex_solver_clause(n_vars, clause):        
     complex_clause_tup = tuple()
     tmp_clause = [2] * (n_vars + 1)
     for literal in clause:
@@ -34,9 +34,9 @@ def complex_solver_clause(n_vars, clause):
         else:
             tmp_clause[idx] = prop
 
-        for idx, lit in enumerate(tmp_clause):
-            if lit == 2:
-                tmp_clause[idx] = 0
+    for idx, lit in enumerate(tmp_clause):
+        if lit == 2:
+            tmp_clause[idx] = 0
         
     for idx, lit in enumerate(tmp_clause):
         if lit != 0:
@@ -54,6 +54,7 @@ if __name__ == "__main__":
     filename = args.file
     n_vars, n_clauses, clauses = parse_dimacs_cnf(filename)
     complex_clauses = complexSolverClauses(n_vars, clauses)
+    print("complex_clauses", complex_clauses)
     print()
     print('CONVERTING INTO CNF with', n_vars, 'variables', n_clauses, 'clauses')
     cnf = CNF(var_len=n_vars, clauses=clauses)

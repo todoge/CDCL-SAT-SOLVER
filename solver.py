@@ -193,7 +193,9 @@ class ComplexSatSolver:
         # for every clause, if unit clause, assign it. if conflict, return False
         units_to_remove = set()
         for clause in self.clauses:
+            print("clause: ", clause)
             if self.is_unit(clause):
+                #print("unit clause: ", clause)
                 var, value = self.get_unit(clause)
                 if self.assignment[var] == 0:
                     self.assignment[var] = value
@@ -247,6 +249,7 @@ class ComplexSatSolver:
     
         """
         mapped_clause = self.remove_zero_val_literal(tuple(map(self.check_literal, clause)))  # conlifcting = 0 is resolved. non-zero val is unassigned or consistent.
+        print("mapped_clause: ", mapped_clause)
         derived_is_unit = self.is_unit(mapped_clause)
         derived_is_conflict = self.is_empty(mapped_clause) # if all literals are resolved, then it is a conflict
         if derived_is_unit:
@@ -275,6 +278,8 @@ class ComplexSatSolver:
             for clause in [x for x in self.clauses.union(self.learned_clauses)]:
                 # (fresh derived unit clause, True) or (None, True) or (clause, False)
                 derived_clause, is_consistent = self.resolve_clause(clause)
+                print("clause:", clause, "derived_clause: ", derived_clause, "is_consistent: ", is_consistent)
+                print("assignment: ", self.assignment)
                 if is_consistent:
                     ## fresh unit clause is derived
                     if derived_clause is not None:
@@ -305,7 +310,9 @@ class ComplexSatSolver:
         """
         # preprocess
         if not self.preprocess():
+            print("conflict is found in preprocessing")
             return False
+        
         while True:
             # unit propagate
             conflict_clause = self.unit_propagate()
@@ -315,6 +322,7 @@ class ComplexSatSolver:
                     return False
                 
                 # conflict is found
+                print("conflict is found", conflict_clause)
                 learned_clause = self.impl_graph.get_last_UIP_cut(conflict_clause, self.level)
                 self.learned_clauses.add(learned_clause)
 
@@ -371,6 +379,7 @@ class ComplexSatSolver:
         # pick a variable
         var :int = random.choice([x for x in range(1, len(self.assignment)) if self.assignment[x] == 0])
         val: int = random.sample([1, -1], 1)[0]
+
         return (var, val)
     
     # def pick_branch_3SAT(self):
