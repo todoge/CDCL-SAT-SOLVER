@@ -5,8 +5,7 @@ class Clause:
         self.var_len = var_len
         tmp_clause = [2] * var_len
         for literal in clause:
-            #idx = abs(literal) - 1
-            idx = abs(literal)
+            idx = abs(literal) - 1
             prop = 1 if literal > 0 else -1
             if tmp_clause[idx] != 2 and tmp_clause[idx] != prop:
                 tmp_clause[idx] = 0

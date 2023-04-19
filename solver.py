@@ -2,10 +2,8 @@ import random
 from cnf import CNF
 import itertools
 from bisect import bisect_left
-import queue
 from typing import List, Optional
 from collections import deque
-from dataclasses import dataclass, FrozenInstanceError
 
 
 class SATSolver:
@@ -155,14 +153,14 @@ class ImplicationGraph:
 class ComplexSatSolver:
     # all literals start from 1
 
-    def __init__(self, n_var, clauses) -> None:
+    def __init__(self, n_var, clauses):
         self.assignment:List[int] = [0] * (n_var + 1) # idx: var, val: 1 or -1
         self.picked_literals = set() # (var, val)
         self.level_to_pick = list() # level_idx -> (var, val) # :List[(int, int)]
         self.level_to_propList= list() # level_idx -> list of (var, val) #List[List[(int,int)]]
-        self.clauses = clauses # List[List[int]]
+        self.clauses = clauses # set(List[int]])
         # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
-        self.learned_clauses = list() # List[List[int]]
+        self.learned_clauses = set() # set(List[int])
         # list of learned clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
         self.level = 0
         self.impl_graph = ImplicationGraph()
@@ -191,12 +189,9 @@ class ComplexSatSolver:
         return False if conflict is found, otherwise return True
         """    
         proplist = list() # a list of (var, val) that are assigned at level 0, i.e. given #:List[(int, int)] 
-        unit_clauses_idxs:List(int) = list() # a list of indexes of unit clauses in self.clauses
         # for every clause, if unit clause, assign it. if conflict, return False
-        for i in range(0, len(self.clauses)):
-            clause = self.clauses[i]
+        for clause in self.clauses:
             if self.is_unit(clause):
-                unit_clauses_idxs.append(i)
                 var, value = self.get_unit(clause)
                 if self.assignment[var] == 0:
                     self.assignment[var] = value
@@ -204,15 +199,13 @@ class ComplexSatSolver:
                 elif self.assignment[var] != value:
                     return False
                 
-        # remove unit clauses from clauses
-        adjust = 0
-        for i in unit_clauses_idxs[::-1]:
-            self.clauses.pop(i - adjust)
-            adjust += 1
+                # remove unit clauses from clauses
+                self.clauses.remove(clause)
 
         # update and unit propagate
         self.level_to_pick.append(None)
-        self.level_to_propList[self.level] = proplist
+        self.level_to_propList.append(proplist)
+        assert self.level_to_propList[self.level] == proplist
         for (var, val) in proplist:
             self.impl_graph.add_node(var, val, self.level)
         return True
@@ -332,7 +325,8 @@ class ComplexSatSolver:
                     # add to assignment
                     self.assignment[picked_literal[0]] = picked_literal[1]
                     # add to level_to_propList
-                    self.level_to_propList[self.level] = list()
+                    self.level_to_propList.append(list())
+                    assert len(self.level_to_propList) == (self.level + 1)
                     self.level_to_propList[self.level].append(picked_literal)
                     # add to implication graph
                     self.impl_graph.add_node(picked_literal[0], picked_literal[1], self.level, None)
@@ -346,10 +340,11 @@ class ComplexSatSolver:
         # remove all levels equal to or greater than the given level
         for i in reversed(range(level, self.level+1)):
             pick = self.level_to_pick.pop()
+            assert i == len(self.level_to_propList) + 1
             propList = self.level_to_propList[i]
             for var, val in propList:
                 self.assignment[var] = 0
-            self.level_to_propList.pop(i)
+            self.level_to_propList.pop()
             self.implication_graph.remove_nodes(pick)
 
         assert len(self.level_to_pick) == level
