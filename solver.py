@@ -1,3 +1,4 @@
+import random
 from cnf import CNF
 import itertools
 from bisect import bisect_left
@@ -310,7 +311,6 @@ class ComplexSatSolver:
                 learned_clause = self.impl_graph.get_last_UIP_cut(conflict_clause, self.level)
                 self.learned_clauses.append(learned_clause)
 
-
                 # backtrack to the level before the learned clause is derived
                 self.backtrack(self.level)
 
@@ -326,7 +326,7 @@ class ComplexSatSolver:
                     #increase level
                     self.level += 1
                     # pick a variable
-                    picked_literal = self.pick()
+                    picked_literal = self.pick_branch_rand()
                     # add to level_to_pick
                     self.level_to_pick.append(picked_literal)
                     # add to assignment
@@ -355,6 +355,41 @@ class ComplexSatSolver:
         assert len(self.level_to_pick) == level
         assert len(self.level_to_propList) == level
 
+    def pick_branch_rand(self):
+        """
+        pick a variable to branch on
+        """
+        # pick a variable
+        var = random.choice([x for x in range(1, self.n_var+1) if self.assignment[x] == 0])
+        val = random.sample([1, -1], 1)
+        return (var, val)
+    
+    # def pick_branch_3SAT(self):
+    #     """
+    #     pick a variable to branch on
+    #     """
+    #     freq_pos = [0] * (self.n_var + 1) # frequency of each variable with 1. index 0 is not used.
+    #     freq_neg = [0] * (self.n_var + 1) # frequency of each variable with -1. index 0 is not used. 
+    #     for clause in [x for x in self.clauses.append(self.learned_clauses)]:
+    #         if sum( x != 0 for x in clause) < 3:
+    #             for i, e in enumerate(clause):
+    #                 if e != 0:
+    #                     if e == 1:
+    #                         freq_pos[i+1] += 1
+    #                     else:
+    #                         freq_neg[i+1] += 1
+        
+    #     freq = [x + y for x, y in zip(freq_pos, freq_neg)]
+    #     freq_copy = freq.copy()
+    #     sorted(freq_copy, key = lambda x: x[0]+x[1])
+
+
+    #     # pick a variable
+        
+    #     var = random.choice([x for x in range(1, self.n_var+1) if self.assignment[x] == 0])
+    #     val = random.sample([1, -1], 1)
+    #     return (var, val)
+    
 
         
 
