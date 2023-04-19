@@ -43,10 +43,10 @@ class UnitPropNode:
     
 class ImplicationGraph:
     def __init__(self):
-        self.predecessors = {} # (UnitPropNode) -> list of (UnitPropNode). Only one clause can cause a unit clause
-        self.successors = {} # (UnitPropNode) -> list of (clause, (UnitPropNode)). A unit clause can affect multiple clauses. clause assigned to edge 
+        self.predecessors = dict() # (UnitPropNode) -> list of (UnitPropNode). Only one clause can cause a unit clause
+        self.successors = dict() # (UnitPropNode) -> list of (clause, (UnitPropNode)). A unit clause can affect multiple clauses. clause assigned to edge 
         self.picked_props = set() # (UnitPropNode)
-        self.props_to_node = {} # (var, val) -> UnitPropNode
+        self.props_to_node = dict() # (var, val) -> UnitPropNode
 
     #consider cause_clause as a
     def add_node(self, var, val, level, cause_clause = None, is_pick = False):
@@ -55,18 +55,20 @@ class ImplicationGraph:
         cause_clause: the clause that caused the unit clause
         '''
         node = UnitPropNode(var, val, level)
-        if self.props_to_node.get((var, val)) is None:
+        literal : tuple = (var, val)
+        if literal not in self.props_to_node.keys():
             # initialize
-            self.props_to_node[(var, val)] = node
+            self.props_to_node[literal] = node
             self.predecessors[node] = list()
             self.successors[node] = list()
 
         if not is_pick and cause_clause is not None:
-            cause_clause_cp = cause_clause.copy()
-            cause_clause_cp[node.var] = 0
-            causes_props = [(i,e) for i, e in enumerate(cause_clause_cp) if e != 0]
-            for (var, val) in causes_props:
-                cause_node = self.props_to_node[(var, val)]
+            cause_clause_cp = cause_clause.copy() # tuple of (var, val)s
+            if (var, val) in cause_clause_cp:
+                cause_clause_cp.remove((var, val))
+            causes_props = [(i,e) for (i,e) in cause_clause_cp]
+            for cause_lit in causes_props:
+                cause_node = self.props_to_node[cause_lit]
                 self.predecessors[node].append(cause_node)
                 self.successors[cause_node].append((cause_clause, node))
         elif is_pick:
@@ -80,10 +82,10 @@ class ImplicationGraph:
         clause: a clause that led to the conflict
         return the last UIP cut clause to be learned
         '''
-        clause_literals_list= [(i, -e) for i, e in enumerate(clause) if e != 0] # (var, val) that led to the conflict
+        clause_literals_list= [(i, -e) for (i, e) in (clause) if e != 0] # (var, val) that led to the conflict
         stack = []
         visited = set()
-        new_learned_clause = [0] * (self.var_length + 1)
+        new_learned_clause = tuple()
 
         # populate stack with first causes
         for (var, val) in clause_literals_list:
@@ -100,7 +102,7 @@ class ImplicationGraph:
                     assert node.level == level
                 
                 cause_var, cause_val = node.var, node.val
-                new_learned_clause[cause_var] = -cause_val # learn the opposite of the picked literal
+                new_learned_clause = new_learned_clause + ((cause_var, -cause_val),) # learn the opposite of the picked literal
 
             else:
                 for cause_prop in self.predecessors[node]:
@@ -158,28 +160,27 @@ class ComplexSatSolver:
         self.picked_literals = set() # (var, val)
         self.level_to_pick = list() # level_idx -> (var, val) # :List[(int, int)]
         self.level_to_propList= list() # level_idx -> list of (var, val) #List[List[(int,int)]]
-        self.clauses = clauses # set(List[int]])
-        # list of clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
-        self.learned_clauses = set() # set(List[int])
-        # list of learned clauses, each clause is a list of literals in the form of an array with idx: var, val: 1 or -1 or 0
+        self.clauses = clauses # each clause: tuple of (var,val) in sorted order. clauses: set(tuple(var:int,val:int))
+        self.learned_clauses = set()
         self.level = 0
         self.impl_graph = ImplicationGraph()
 
     def is_unit(self, clause):
-        count = 0
-        for l in clause :
-            if l != 0:
-                count += 1
+        return len(clause) == 1
+    
+    def is_empty(self, clause):
+        return len(clause) == 0
     
     def get_unit(self, clause):
         '''
         return the unit literal and its value
         '''
-        for i in range (1, self.n_var + 1):
-            if clause[i] != 0:
-                return i, clause[i]
+        assert self.is_unit(clause)
+        idx = len(clause) - 1
+        return clause[idx][0], clause[idx][1] 
 
-    # save nodes as level 0.
+    def all_assigned(self):
+        return 0 not in self.assignment[1:]
 
     def preprocess(self):
         """
@@ -190,6 +191,7 @@ class ComplexSatSolver:
         """    
         proplist = list() # a list of (var, val) that are assigned at level 0, i.e. given #:List[(int, int)] 
         # for every clause, if unit clause, assign it. if conflict, return False
+        units_to_remove = set()
         for clause in self.clauses:
             if self.is_unit(clause):
                 var, value = self.get_unit(clause)
@@ -200,31 +202,43 @@ class ComplexSatSolver:
                     return False
                 
                 # remove unit clauses from clauses
-                self.clauses.remove(clause)
+                units_to_remove.add(clause)
+        
+        # remove unit clauses from clauses
+        for clause in units_to_remove:
+            self.clauses.remove(clause)
 
         # update and unit propagate
         self.level_to_pick.append(None)
         self.level_to_propList.append(proplist)
-        assert self.level_to_propList[self.level] == proplist
+
         for (var, val) in proplist:
             self.impl_graph.add_node(var, val, self.level)
         return True
                  
-    def check_literal(self, var, val):
+    def check_literal(self, literal):
         """
         check if a literal is consistent with assignment.
         return value of the literal if it is not assigned
         return value of the literal if it is assigned to the same value
         return 0 if it is assigned to the opposite value
         """
+        var, val = literal
         if self.assignment[var] == 0:
-            return val
+            return var, val
         elif self.assignment[var] == val:
-            return val
+            return var, val
         else:
-            return 0
+            return var, 0
+        
+    def remove_zero_val_literal(self, clause):
+        for literal in clause:
+            var, val = literal
+            if val == 0:
+                clause.remove(literal)
+        return clause
     
-    def resolve_clause(self, clause):
+    def resolve_clause(self, clause): 
         """
         resolve a clause with the current assignment
         return (derived unit clause, True) if a fresh unit clause is derived,
@@ -232,13 +246,13 @@ class ComplexSatSolver:
         otherwise return (None, True)
     
         """
-        mapped = list(map(self.check_literal, clause))  # conlifcting = 0 is resolved. non-zero val is unassigned or consistent.
-        derived_is_unit = True if sum( x != 0 for x in mapped) == 1 else False # if only one literal is not resolved, then it is a unit clause
-        derived_is_conflict = True if sum (x == 0 for x in mapped) == len(mapped) else False # if all literals are resolved, then it is a conflict
+        mapped_clause = self.remove_zero_val_literal(tuple(map(self.check_literal, clause)))  # conlifcting = 0 is resolved. non-zero val is unassigned or consistent.
+        derived_is_unit = self.is_unit(mapped_clause)
+        derived_is_conflict = self.is_empty(mapped_clause) # if all literals are resolved, then it is a conflict
         if derived_is_unit:
-            var, val = self.get_unit(mapped)
+            var, val = self.get_unit(mapped_clause)
             if self.assignment[var] == 0:
-                return (mapped, True)
+                return (mapped_clause, True)
             else:
                 return (None, True)
         elif derived_is_conflict :
@@ -258,7 +272,7 @@ class ComplexSatSolver:
         while True:
             fresh_derived = False
             # for each clause, check if something can be derived.
-            for clause in [x for x in self.clauses.append(self.learned_clauses)]:
+            for clause in [x for x in self.clauses.union(self.learned_clauses)]:
                 # (fresh derived unit clause, True) or (None, True) or (clause, False)
                 derived_clause, is_consistent = self.resolve_clause(clause)
                 if is_consistent:
@@ -302,7 +316,7 @@ class ComplexSatSolver:
                 
                 # conflict is found
                 learned_clause = self.impl_graph.get_last_UIP_cut(conflict_clause, self.level)
-                self.learned_clauses.append(learned_clause)
+                self.learned_clauses.add(learned_clause)
 
                 # backtrack to the level before the learned clause is derived
                 self.backtrack(self.level)
@@ -355,7 +369,7 @@ class ComplexSatSolver:
         pick a variable to branch on
         """
         # pick a variable
-        var = random.choice([x for x in range(1, self.n_var+1) if self.assignment[x] == 0])
+        var = random.choice([x for x in range(1, len(self.assignment)) if self.assignment[x] == 0])
         val = random.sample([1, -1], 1)
         return (var, val)
     

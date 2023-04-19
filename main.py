@@ -18,7 +18,7 @@ def parse_dimacs_cnf(filename):
     return n_vars, n_clauses, clauses
 
 def complexSolverClauses(n_vars, clauses):
-    complex_clauses: set(List[int]) = set()
+    complex_clauses = set() # set of tuples of (var, val)
     for clause in clauses:
         complex_clauses.add(complex_solver_clause(n_vars, clause))
     return complex_clauses
@@ -39,21 +39,13 @@ def complex_solver_clause(n_vars, clause):
         for idx, lit in enumerate(tmp_clause):
             if lit == 2:
                 tmp_clause[idx] = 0
-    return ComplexClause(tmp_clause)
 
-# just to hash the list
-class ComplexClause:
-    def __init__(self, clause:List[int]):
-        self.clause = clause
-    
-    def __eq__(self, other):
-        for idx, lit in enumerate(self.clause):
-            if lit != other.clause[idx]:
-                return False
-        return True
-    
-    def __hash__(self):
-        return hash(tuple(self.clause))
+    complex_clause_tup = tuple()
+    for idx, lit in enumerate(tmp_clause):
+        if lit != 0:
+            complex_clause_tup += ((idx, lit),)
+
+    return complex_clause_tup
 
 if __name__ == "__main__":
     print('This program is a SAT solver for checking satisfiability of CNFs in Dimacs.')
