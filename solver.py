@@ -369,8 +369,8 @@ class ComplexSatSolver:
         pick a variable to branch on
         """
         # pick a variable
-        var = random.choice([x for x in range(1, len(self.assignment)) if self.assignment[x] == 0])
-        val = random.sample([1, -1], 1)
+        var :int = random.choice([x for x in range(1, len(self.assignment)) if self.assignment[x] == 0])
+        val: int = random.sample([1, -1], 1)[0]
         return (var, val)
     
     # def pick_branch_3SAT(self):

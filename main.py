@@ -1,6 +1,6 @@
 from ast import List
 from cnf import CNF
-from solver import ComplexSatSolver
+from solver import ComplexSatSolver, SATSolver
 import argparse
 
 def parse_dimacs_cnf(filename):
@@ -24,23 +24,20 @@ def complexSolverClauses(n_vars, clauses):
     return complex_clauses
 
 def complex_solver_clause(n_vars, clause):
+    complex_clause_tup = tuple()
+    tmp_clause = [2] * (n_vars + 1)
     for literal in clause:
-        tmp_clause = [2] * (n_vars + 1)
         idx = abs(literal)
         prop = 1 if literal > 0 else -1
         if tmp_clause[idx] != 2 and tmp_clause[idx] != prop:
             tmp_clause[idx] = 0 # both -1 and 1 -> 0
-            
-        elif tmp_clause[idx] == 0:
-            continue
         else:
             tmp_clause[idx] = prop
 
         for idx, lit in enumerate(tmp_clause):
             if lit == 2:
                 tmp_clause[idx] = 0
-
-    complex_clause_tup = tuple()
+        
     for idx, lit in enumerate(tmp_clause):
         if lit != 0:
             complex_clause_tup += ((idx, lit),)
@@ -61,7 +58,7 @@ if __name__ == "__main__":
     print('CONVERTING INTO CNF with', n_vars, 'variables', n_clauses, 'clauses')
     cnf = CNF(var_len=n_vars, clauses=clauses)
     print(cnf,'\n')
-    # solver = SATSolver(var_len=n_vars, clause_len=n_clauses)
+    solver = SATSolver(var_len=n_vars, clause_len=n_clauses)
     # isSolvable = solver.simpleSolver(cnf)
     solver = ComplexSatSolver(n_vars, complex_clauses)
     isSolvable = solver.solve()
