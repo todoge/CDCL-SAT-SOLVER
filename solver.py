@@ -109,7 +109,37 @@ class ImplicationGraph:
                         stack.append(cause_prop)
 
         return new_learned_clause
+    
+    def remove_nodes_by_node(self, node):
+        '''
+        remove all nodes that follow the node, via transitive closure
+        '''
+        level = node.level
+        # remove nodes from predecessors and successors
+        if node in self.picked_props:
+            self.picked_props.pop(node, None)
 
+        for pred_node in self.predecessors[node]:
+            if pred_node in self.successors:
+                self.successors[pred_node].pop(node, None)
+
+        for succ_node in self.successors[node]:
+            assert succ_node.level >= level
+            self.remove_nodes_by_node(succ_node)
+
+        # remove node from graph
+        self.predecessors.pop(node, None)
+        self.successors.pop(node, None)
+        self.props_to_node.pop((node.var, node.val), None)
+
+
+    def remove_nodes(self, pick):
+        '''
+        remove all nodes that have level >= level
+        '''
+        # remove nodes from predecessors and successors
+        pick_unit_prop_node = self.props_to_node[pick]
+        self.remove_nodes_by_node(pick_unit_prop_node)
 
 ###### Conflict analysis: 1) closest to choice point, 2) first UIP
 ### first UIP: first unit clause that is not a descendant of the choice point
@@ -185,7 +215,6 @@ class ComplexSatSolver:
         for (var, val) in proplist:
             self.impl_graph.add_node(var, val, self.level)
         return True
-
                  
     def check_literal(self, var, val):
         """
@@ -200,11 +229,6 @@ class ComplexSatSolver:
             return val
         else:
             return 0
-
-    ### when checking a clause against an assignment. if any of it contains 0, nothing derived.
-    ### if all of them are 1, then the clause is satisfied. nothing derived.
-    ### if any of them is -1, then that literal is resolved. 0 is derived.
-
     
     def resolve_clause(self, clause):
         """
@@ -266,8 +290,6 @@ class ComplexSatSolver:
             else : # new unit clause is derived so run unit propagation again
                 continue
 
-
-
     def solve(self):
         """
         preprocess the clauses
@@ -288,11 +310,12 @@ class ComplexSatSolver:
                 learned_clause = self.impl_graph.get_last_UIP_cut(conflict_clause, self.level)
                 self.learned_clauses.append(learned_clause)
 
-                # backtrack
-                self.level -= 1
 
-                # TODO: backtrack to the level before the learned clause is derived
-                #self.backtrack(self.level) deals with level_to_pick, level_to_propList, assignment
+                # backtrack to the level before the learned clause is derived
+                self.backtrack(self.level)
+
+                # backtrack by one
+                self.level -= 1
 
             else:
                 # no conflict is found
@@ -318,23 +341,22 @@ class ComplexSatSolver:
 
     def backtrack(self, level):
         """
-        backtrack to the given level. i.e. the level before the learned clause is derived
+        backtrack to before the given level. i.e. remove up to given level incl.
         """
-        remove_level = level+1
-        # remove the last level_to_pick
-        self.level_to_pick.pop()
-        # todo: assert
+        # remove all levels equal to or greater than the given level
+        for i in reversed(range(level, self.level+1)):
+            pick = self.level_to_pick.pop()
+            propList = self.level_to_propList[i]
+            for var, val in propList:
+                self.assignment[var] = 0
+            self.level_to_propList.pop(i)
+            self.implication_graph.remove_nodes(pick)
 
-        # remove the last level_to_propList
-        propList = self.level_to_propList[self.level]
-        self.level_to_propList.pop(self.level)
+        assert len(self.level_to_pick) == level
+        assert len(self.level_to_propList) == level
 
-        # remove the assignments
-        for var, val in propList:
-            self.assignment[var] = 0
 
-        # remove the implication graph nodes
-        #TODO: remove the nodes in the implication graph
+        
 
 
 
