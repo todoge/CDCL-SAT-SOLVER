@@ -345,18 +345,15 @@ class CNFFormula:
     def pick_branching_variable(self, heuristic: int) -> int:
         """
         Pick an unassigned decision literal based on heuristic specified in the argument.
-        :param heuristic: specifies a decision heuristic: `0`, `1` or `2`
+        :param heuristic: specifies a decision heuristic: `0`, `1`
         :return: a new decision literal
         """
         branching_heuristics = Heuristics(self.variables, self.assignment, self.positive_literal_counter, self.negative_literal_counter)
         if heuristic == 0:
-            return branching_heuristics.unassigned_heuristic()
+            return branching_heuristics.two_clause_heuristic()
 
         if heuristic == 1:
             return branching_heuristics.vsids_heuristic()
-
-        if heuristic == 2:
-            return branching_heuristics.random_heuristic()
 
     def delete_learned_clauses_by_lbd(self, lbd_limit: float) -> None:
         """

@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from typing import Tuple, Optional
 import numpy as np
@@ -10,7 +11,7 @@ def cdcl(cnf_formula: CNFFormula, assumption: Optional[list] = None, heuristic: 
     CDCL algorithm for deciding whether the DIMACS CNF formula in the argument `cnf_formula` is satisfiable (SAT) or
     unsatisfiable (UNSAT). In the case of SAT formula, the function also returns a model.
     :param cnf_formula: DIMACS CNF formula
-    :param heuristic: Specifies a decision heuristic: `0`, `1` or `2`
+    :param heuristic: Specifies a decision heuristic: `0`, `1`
     :param assumption: a list of integers representing assumption about the initial values of specified variables
     :param lbd_limit: a limit for LBD
     :param conflicts_limit: a limit for number of conflicts before a restart is used
@@ -122,11 +123,11 @@ def find_model(input_file: str, assumption: Optional[list] = None, heuristic: in
 
     else:
         print("CNF IS UNSAT... :C")
-    print()
-    print("Total time taken =", cpu_time, "s")
-    print("Number of decisions =", decisions)
-    print("Number of steps of unit propagation =", unit_propagations)
-    print("Number of restarts =", restarts)
+        print()
+        print("Total time taken =", cpu_time, "s")
+        print("Number of decisions =", decisions)
+        print("Number of steps of unit propagation =", unit_propagations)
+        print("Number of restarts =", restarts)
 
     return sat, model, cpu_time, decisions, unit_propagations, restarts
 
@@ -152,4 +153,26 @@ if __name__ == "__main__":
                                                        "in the learned clause for clause deletion")
     args = parser.parse_args()
 
-    find_model(args.input, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
+    # find_model(args.input, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
+    cnf_folder = args.input # folder name
+    cnf_files = sorted([os.path.join(cnf_folder, f) for f in os.listdir(cnf_folder) if f.endswith('.cnf')])
+    cpu_times_list = []
+    decisions_list = []
+    unit_propagations_list = []
+    restarts_list = []
+    count = 0
+    
+    for file_path in cnf_files:
+        sat, model, cpu_time, decisions, unit_propagations, restarts = find_model(file_path, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
+        if sat:
+            count += 1
+            cpu_times_list.append(cpu_time)
+            decisions_list.append(decisions)
+            unit_propagations_list.append(unit_propagations)
+            restarts_list.append(restarts)
+
+    print(f"Total number of SAT: {count}")
+    print(f"Avg. CPU time: {sum(cpu_times_list)/len(cpu_times_list):.2f}s")
+    print(f"Avg. decision count: {sum(decisions_list)/len(decisions_list)}")
+    print(f"Avg. unit propagation count: {sum(unit_propagations_list)/len(unit_propagations_list)}")
+    print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
