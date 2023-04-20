@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 from typing import Tuple, Optional
 import numpy as np
@@ -10,7 +11,7 @@ def cdcl(cnf_formula: CNFFormula, assumption: Optional[list] = None, heuristic: 
     CDCL algorithm for deciding whether the DIMACS CNF formula in the argument `cnf_formula` is satisfiable (SAT) or
     unsatisfiable (UNSAT). In the case of SAT formula, the function also returns a model.
     :param cnf_formula: DIMACS CNF formula
-    :param heuristic: Specifies a decision heuristic: `0`, `1` or `2`
+    :param heuristic: Specifies a decision heuristic: `0`, `1`
     :param assumption: a list of integers representing assumption about the initial values of specified variables
     :param lbd_limit: a limit for LBD
     :param conflicts_limit: a limit for number of conflicts before a restart is used
@@ -114,19 +115,18 @@ def find_model(input_file: str, assumption: Optional[list] = None, heuristic: in
     sat, model, decisions, unit_propagations, restarts = cdcl(cnf_formula, assumption, heuristic, conflicts_limit,
                                                               lbd_limit)
     cpu_time = time.time() - start_time
-    if sat:
-        model.sort(key=abs)
-        print("CNF IS SAT!! :D")
-        print("Solution is", model)
-        print("Possible missing literals can have arbitrary value.")
-
-    else:
-        print("CNF IS UNSAT... :C")
-    print()
-    print("Total time taken =", cpu_time, "s")
-    print("Number of decisions =", decisions)
-    print("Number of steps of unit propagation =", unit_propagations)
-    print("Number of restarts =", restarts)
+    # if sat:
+    #     model.sort(key=abs)
+    #     print("CNF IS SAT!! :D")
+    #     print("Solution is", model)
+    #     print("Possible missing literals can have arbitrary value.")
+    # else:
+    #     print("CNF IS UNSAT... :C")
+    # print()
+    # print("Total time taken =", cpu_time, "s")
+    # print("Number of decisions =", decisions)
+    # print("Number of steps of unit propagation =", unit_propagations)
+    # print("Number of restarts =", restarts)
 
     return sat, model, cpu_time, decisions, unit_propagations, restarts
 
@@ -152,4 +152,83 @@ if __name__ == "__main__":
                                                        "in the learned clause for clause deletion")
     args = parser.parse_args()
 
-    find_model(args.input, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
+    # find_model(args.input, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
+    cnf_folder = args.input # folder name
+    cnf_files = sorted([os.path.join(cnf_folder, f) for f in os.listdir(cnf_folder) if f.endswith('.cnf')])
+    cpu_times_list = []
+    decisions_list = []
+    unit_propagations_list = []
+    restarts_list = []
+    sat_count = 0
+    unsat_count = 0
+    
+    for file_path in cnf_files:
+        sat, model, cpu_time, decisions, unit_propagations, restarts = find_model(file_path, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
+        if sat:
+            sat_count += 1
+        else :
+            unsat_count += 1
+        cpu_times_list.append(cpu_time)
+        decisions_list.append(decisions)
+        unit_propagations_list.append(unit_propagations)
+        restarts_list.append(restarts)
+            
+    print(f"Total number of SAT: {sat_count}")
+    print(f"Total number of UNSAT: {unsat_count}")
+
+    print(f"Avg. CPU time: {sum(cpu_times_list)/len(cpu_times_list):.7f}s")
+    print(f"Avg. decision count: {sum(decisions_list)/len(decisions_list)}")
+    print(f"Avg. unit propagation count: {sum(unit_propagations_list)/len(unit_propagations_list)}")
+    print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
+    
+    
+    # Parameters
+    # n_values : List(int) = [20, 50, 75, 100]  # corresponds to tc_1.cnf, tc_2.cnf, .. tc_5.cnf
+
+    # heuristics = ['0', '1', '2', '3']
+    # # Initialize arrays to store the result times
+    # result_times = {heuristic: [] for heuristic in heuristics}
+    
+    # # Loop over values of n and heuristics
+    # for n in n_values:
+    #     for heuristic in heuristics:
+    #         cnf_folder = '../test/n_{}_sat'.format(n)
+    #         cnf_files = sorted([os.path.join(cnf_folder, f) for f in os.listdir(cnf_folder) if f.endswith('.cnf')])
+    #         cpu_times_list = []
+    #         decisions_list = []
+    #         unit_propagations_list = []
+    #         restarts_list = []
+    #         sat_count = 0
+    #         unsat_count = 0
+    #         for file_path in cnf_files:
+    #             sat, model, cpu_time, decisions, unit_propagations, restarts = find_model(file_path, args.assumption, heuristic, args.conflicts_limit, args.lbd_limit)
+    #             if sat:
+    #                 sat_count += 1
+    #             else :
+    #                 unsat_count += 1
+    #             cpu_times_list.append(cpu_time)
+    #             decisions_list.append(decisions)
+    #             unit_propagations_list.append(unit_propagations)
+    #             restarts_list.append(restarts)
+            
+    #         avg_time = sum(cpu_times_list)/len(cpu_times_list)
+    #         print(f"Total number of SAT: {sat_count}")
+    #         print(f"Total number of UNSAT: {unsat_count}")
+    #         print(f"Avg. CPU time: {avg_time:.7f}s")
+    #         print(f"Avg. decision count: {sum(decisions_list)/len(decisions_list)}")
+    #         print(f"Avg. unit propagation count: {sum(unit_propagations_list)/len(unit_propagations_list)}")
+    #         print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
+        
+    #         # Append the average result time to the appropriate array
+    #         result_times[heuristic].append(avg_time)
+
+    # # Plot the results
+    # plt.figure()
+    # plt.title('Average Result Time on CNF cases of n variables')
+    # plt.xlabel('n variables')
+    # plt.ylabel('Average CPU Time (seconds)')
+    # for heuristic in heuristics:
+    #     plt.plot(n_values, result_times[heuristic], label=heuristic)
+    # # set the x-axis tick labels to the test case file names
+    # plt.legend()
+    # plt.savefig('result_time_plot.png')
