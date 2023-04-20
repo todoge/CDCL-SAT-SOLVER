@@ -124,7 +124,7 @@ class Encoder:
         self.neighbor(Options.blend.value, Options.water.value)
         
         # ADD CONSTRAINT HERE TO CHECK WHO OWNS THE FISH!
-        # self.and_operator(Options.german.value, Options.fish.value)
+        self.and_operator(Options.german.value, Options.fish.value)
 
         # The green house is on the left of the white house.
         for w in range(1, self.length+1):
