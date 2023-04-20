@@ -120,14 +120,13 @@ def find_model(input_file: str, assumption: Optional[list] = None, heuristic: in
         print("CNF IS SAT!! :D")
         print("Solution is", model)
         print("Possible missing literals can have arbitrary value.")
-
     else:
         print("CNF IS UNSAT... :C")
-        print()
-        print("Total time taken =", cpu_time, "s")
-        print("Number of decisions =", decisions)
-        print("Number of steps of unit propagation =", unit_propagations)
-        print("Number of restarts =", restarts)
+    print()
+    print("Total time taken =", cpu_time, "s")
+    print("Number of decisions =", decisions)
+    print("Number of steps of unit propagation =", unit_propagations)
+    print("Number of restarts =", restarts)
 
     return sat, model, cpu_time, decisions, unit_propagations, restarts
 
@@ -160,19 +159,25 @@ if __name__ == "__main__":
     decisions_list = []
     unit_propagations_list = []
     restarts_list = []
-    count = 0
+    sat_count = 0
+    unsat_count = 0
     
     for file_path in cnf_files:
         sat, model, cpu_time, decisions, unit_propagations, restarts = find_model(file_path, args.assumption, args.heuristic, args.conflicts_limit, args.lbd_limit)
         if sat:
-            count += 1
-            cpu_times_list.append(cpu_time)
-            decisions_list.append(decisions)
-            unit_propagations_list.append(unit_propagations)
-            restarts_list.append(restarts)
+            sat_count += 1
+        else :
+            unsat_count += 1
+        cpu_times_list.append(cpu_time)
+        decisions_list.append(decisions)
+        unit_propagations_list.append(unit_propagations)
+        restarts_list.append(restarts)
+            
 
-    print(f"Total number of SAT: {count}")
-    print(f"Avg. CPU time: {sum(cpu_times_list)/len(cpu_times_list):.2f}s")
+    print(f"Total number of SAT: {sat_count}")
+    print(f"Total number of UNSAT: {unsat_count}")
+
+    print(f"Avg. CPU time: {sum(cpu_times_list)/len(cpu_times_list):.7f}s")
     print(f"Avg. decision count: {sum(decisions_list)/len(decisions_list)}")
     print(f"Avg. unit propagation count: {sum(unit_propagations_list)/len(unit_propagations_list)}")
     print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
