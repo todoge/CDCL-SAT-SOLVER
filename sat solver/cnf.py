@@ -1,10 +1,7 @@
-from collections import deque
+from collections import Counter, deque
 import random
 import numpy as np
 from typing import Tuple, Optional
-"""
-    The class which represents a single clause.
-"""
 class Clause:
     def __init__(self, literals, w1=None, w2=None, learned=False, lbd=0):
         self.literals = literals  # describes how exactly does this clause look like
@@ -22,14 +19,6 @@ class Clause:
                 self.w1 = self.w2 = 0
 
     def partial_assignment(self, assignment: list) -> list:
-        """
-        Performs partial assignment of this clause with given `assignment` and returns the resulting list of literals,
-        i.e. if the clause is SAT then returns empty list, otherwise returns the remaining list of unassigned literals.
-        (It it currently used only in the heuristic selection of decision literal: `get_decision_literal`)
-        :param assignment: the assignment
-        :return: if the clause is SAT then returns empty list, otherwise returns the remaining list of unassigned
-        literals
-        """
         unassigned = []
         for literal in self.literals:
             if assignment[abs(literal)] == literal:
@@ -41,106 +30,74 @@ class Clause:
         return list(unassigned)
 
     def update_watched_literal(self, assignment: list, new_variable: int) -> Tuple[bool, int, Optional[int]]:
-        """
-        Updates the watched literal of this Clause given the assignment `assignment` and the latest assigned variable
-        `new_variable` which is used to update the watched literal, if necessary.
-        :param new_variable: name of the variable which was currently changed
-        :param assignment: a current assignment list
-        :return: Tuple `(success, new_watched_literal, unit_clause literal)` where `success` represents whether the
-        update was successful or the Clause is unsatisfied, `new_watched_literal` is the new watched literal,
-        `unit_clause_literal` represent the unit clause literal in the case that the Clause becomes unit during the
-        update of the watched literal.
-        """
 
-        # Without loss of generality, the old watched literal index, that we need to change, is `self.w1`
+        # If the new variable assignment is the same as the watched literal, then swap the watched literals
         if new_variable == abs(self.literals[self.w2]):
             temp = self.w1
             self.w1 = self.w2
             self.w2 = temp
 
-        # If Clause[self.w1] is True in this new variable assignment or
-        # Clause[self.w2] has been True previously, then the Clause is satisfied
         if (self.literals[self.w1] == assignment[abs(self.literals[self.w1])] or
                 self.literals[self.w2] == assignment[abs(self.literals[self.w2])]):
             return True, self.literals[self.w1], False
 
-        # If Clause[self.w1] is False in this new variable assignment and
-        # Clause[self.w2] is also False from previous assignment, then the Clause is unsatisfied
+
         if (-self.literals[self.w1] == assignment[abs(self.literals[self.w1])] and
                 -self.literals[self.w2] == assignment[abs(self.literals[self.w2])]):
             return False, self.literals[self.w1], False
 
-        # If Clause[self.w1] is False in this new variable assignment and
-        # Clause[self.w2] is still unassigned, then look for new index of the watched literal `self.w1`
+
         if (-self.literals[self.w1] == assignment[abs(self.literals[self.w1])] and
                 assignment[abs(self.literals[self.w2])] == 0):
             old_w1 = self.w1
             for w in [(self.w1 + i) % self.size for i in range(self.size)]:
-                # new index `w` must not be equal to `self.w2` and
-                # Clause[w] cannot be False in the current assignment
                 if w == self.w2 or -self.literals[w] == assignment[abs(self.literals[w])]:
                     continue
 
                 self.w1 = w
                 break
 
-            # If the new watched literal index `self.w1` has not been found then the Clause is unit with
-            # Clause[self.w2] being the only unassigned literal.
+
             if self.w1 == old_w1:
                 return True, self.literals[self.w1], True
 
-            # Otherwise the state of the Clause is either not-yet-satisfied or satisfied -> both not important
             return True, self.literals[self.w1], False
 
     def is_satisfied(self, assignment: list) -> bool:
-        """
-        (It it currently used only in the heuristic selection of decision literal: `get_decision_literal`)
-        :param: assignment: the assignment list
-        :return: True if the clause is satisfied in the `assignment`, i.e. one of its watched literals is True.
-        """
         return (self.literals[self.w1] == assignment[abs(self.literals[self.w1])] or
                 self.literals[self.w2] == assignment[abs(self.literals[self.w2])])
 
 class CNFFormula:
-    """
-    The class which represents one formula in CNF.
-    """
 
     def __init__(self, formula):
-        self.formula = formula  # list of lists of literals
+        self.formula = formula  # list of lists of lits
         self.clauses = [Clause(literals) for literals in self.formula]  # list of clauses
         self.learned_clauses = []
-        self.variables = set()  # unordered unique set of variables in the formula
-        self.watched_lists = {}  # dictionary: list of clauses with this `key` literal being watched
+        self.variables = set()  # set of variables in the formula
+        self.watched_lists = {}  # dict: list of clauses with `key` literal watched
         self.unit_clauses_queue = deque()  # queue for unit clauses
-        self.assignment_stack = deque()  # stack for representing the current assignment for backtracking
-        self.assignment = None  # the assignment list with `variable` as index and `+variable/-variable/0` as values
-        self.antecedent = None  # the antecedent list with `variable` as index and `Clause` as value
-        self.decision_level = None  # the decision level list with `variable` as index and `decision level` as value
+        self.assignment_stack = deque()  # stack: current assignment for backtracking
+        self.assignment = None  # list with `variable` as index and `+variable/-variable/0` as values
+        self.antecedent = None  # list with `variable` as index and `Clause` as value
+        self.decision_level = None  # list with `variable` as index and `decision level` as value
         self.positive_literal_counter = None
         self.negative_literal_counter = None
 
         for clause in self.clauses:
-            # If the clause is unit right at the start, add it to the unit clauses queue
             if clause.w1 == clause.w2:
                 self.unit_clauses_queue.append((clause, clause.literals[clause.w2]))
 
-            # For every literal in clause:
             for literal in clause.literals:
                 variable = abs(literal)
-                # - add variable to the set of all variables
                 self.variables.add(variable)
 
-                # - Create empty list of watched clauses for this variable, if it does not exist yet
                 if variable not in self.watched_lists:
                     self.watched_lists[variable] = []
 
-                # - Update the list of watched clauses for this variable
                 if clause.literals[clause.w1] == literal or clause.literals[clause.w2] == literal:
                     if clause not in self.watched_lists[variable]:
                         self.watched_lists[variable].append(clause)
 
-        # Set the assignment/antecedent/decision_level list of the Formula with initial values for each variable
         max_variable = max(self.variables)
         self.assignment = [0] * (max_variable + 1)
         self.antecedent = [None] * (max_variable + 1)
@@ -149,53 +106,36 @@ class CNFFormula:
         self.negative_literal_counter = np.zeros((max_variable + 1), dtype=np.float64)
 
     def all_variables_assigned(self) -> bool:
-        """
-        :return: True if the formula is satisfied, i.e. if all variables are assigned
-        """
         return len(self.variables) == len(self.assignment_stack)
 
     def assign_literal(self, literal: int, decision_level: int) -> Tuple[bool, Optional[Clause]]:
-        """
-        Assigns the literal at the specified decision level.
-        :param decision_level: decision level of the literal
-        :param literal: literal to be assigned
-        :return: A tuple `(succeeded, antecedent_of_conflict)` where `succeeded` is `True` if the assignment was
-            successful and False otherwise, `antecedent_of_conflict` is a unsatisfied conflict clause. I.e.
-            `(succeeded, antecedent_of_conflict)` = `(True, None)` if the partial assignment did not derive any conflict.
-            `(succeeded, antecedent_of_conflict)` = `(False, clause)` if the partial assignment derived unsatisfied
-            clause `clause`.
-        """
-        # Add literal to assignment stack and set the value of corresponding variable in the assignment list
         self.assignment_stack.append(literal)
         self.assignment[abs(literal)] = literal
         self.decision_level[abs(literal)] = decision_level
 
-        # Copy the watched list of this literal because we need to delete some of the clauses from it during
-        # iteration and that cannot be done while iterating through the same list
         watched_list = self.watched_lists[abs(literal)][:]
 
-        # For every clause in the watched list of this variable perform the update of the watched literal and
-        # find out which clauses become unit and which become unsatisfied in the current assignment
+
         for clause in watched_list:
             success, watched_literal, unit = clause.update_watched_literal(self.assignment, abs(literal))
 
-            # If the clause is not unsatisfied:
+            # if not unsat
             if success:
-                # If the watched literal was changed:
+                # if watched changed
                 if abs(watched_literal) != abs(literal):
-                    # Add this clause to the watched list of the new watched literal
+                    # add clause to watched list of new watched literal
                     if clause not in self.watched_lists[abs(watched_literal)]:
                         self.watched_lists[abs(watched_literal)].append(clause)
 
-                    # Remove this clause from the watched list of the old watched literal
+                    # remove clause from watched list of old watched literal
                     self.watched_lists[abs(literal)].remove(clause)
 
-                # If the clause is unit then add the clause to the unit clauses queue
+                # clause is unit then add the clause to the unit clauses queue
                 if unit:
                     if clause.literals[clause.w2] not in [x[1] for x in self.unit_clauses_queue]:
                         self.unit_clauses_queue.append((clause, clause.literals[clause.w2]))
 
-            # If the clause is unsatisfied return False
+            # clause is unsatisfied return False
             if not success:
                 return False, clause
 
@@ -203,9 +143,7 @@ class CNFFormula:
 
     def backtrack(self, decision_level: int) -> None:
         """
-        Delete the assignment stack up until the `decision_level`,
-        i.e. assignment of all variables with decision level > `decision_level` will be removed.
-        :param decision_level: specify the decision level
+        Backtrack to the given decision level by removing all the literals from the assignment stack
         """
         while self.assignment_stack and self.decision_level[abs(self.assignment_stack[-1])] > decision_level:
             literal = self.assignment_stack.pop()
@@ -215,13 +153,6 @@ class CNFFormula:
 
     @staticmethod
     def resolve(clause1: list, clause2: list, literal: int) -> list:
-        """
-        Compute the resolvent of the clauses from the arguments with respect to the literal in the argument.
-        :param clause1: first clause which contains `-literal`
-        :param clause2: second clause which contains `literal`
-        :param literal: literal which is used for resolution
-        :return: a list of literals representing the resolvent
-        """
         in_clause1 = set(clause1)
         in_clause2 = set(clause2)
         in_clause1.remove(-literal)
@@ -229,20 +160,11 @@ class CNFFormula:
         return list(in_clause1.union(in_clause2))
 
     def conflict_analysis(self, antecedent_of_conflict: Clause, decision_level: int) -> int:
-        """
-        Consists of analyzing the most recent conflict, learning a new clause (assertive clause) from the conflict
-        and computing the backtracking level (assertive level), which is the second highest decision level in the
-        assertive clause.
-        :param antecedent_of_conflict: a conflict clause which was derived
-        :param decision_level: the current decision level where the conflict was derived
-        :return: -1 if a conflict at decision level 0 is detected (which implies that the formula is unsatisfiable).
-            Otherwise, a decision level which the solver should backtrack to.
-        """
-        # If the conflict was detected at decision level 0, return -1
+        # conflict at decision level 0, return -1
         if decision_level == 0:
             return -1
 
-        # Find the literals of the assertive clause
+        # find literals of assertive clause
         assertive_clause_literals = antecedent_of_conflict.literals
         current_assignment = deque(self.assignment_stack)
         while len([l for l in assertive_clause_literals if self.decision_level[abs(l)] == decision_level]) > 1:
@@ -253,13 +175,6 @@ class CNFFormula:
                                                              self.antecedent[abs(literal)].literals, literal)
                     break
 
-        # Find the assertion level and the unit literal of the assertive clause which will be the only
-        # unassigned literal of the assertive clause after backtrack to assertion level.
-        # Also find out the `w2` index for the assertive clause which is the index of that unassigned literal.
-        # Also find out which decision levels are present in the assertive clause. This will be used for
-        # finding out LBD of the assertive clause.
-        # Lastly, decay the counters of the literals for VSIDS heuristic and add 1 to counters of all those literals
-        # which appear in this new clause.
         assertion_level = 0
         unit_literal = None
         w2 = None
@@ -283,11 +198,10 @@ class CNFFormula:
             else:
                 self.negative_literal_counter[(abs(literal))] += 1
 
-        # Find out LBD of the assertive clause
+        # get lbd of assertive clause
         lbd = sum(decision_level_present)
 
-        # Find the `w1` index for the assertive clause which is the index of the last assigned literal
-        # in the assertive clause with decision level equal to the assertion level
+        # get the second watched literal
         w1 = None
         if len(assertive_clause_literals) > 1:
             current_assignment = deque(self.assignment_stack)
@@ -305,17 +219,15 @@ class CNFFormula:
         else:
             w1 = w2
 
-        # Create the assertive clause and update the watched lists of the watched literals
+        # create then update
         assertive_clause = Clause(assertive_clause_literals, w1=w1, w2=w2, learned=True, lbd=lbd)
         self.watched_lists[abs(assertive_clause.literals[assertive_clause.w1])].append(assertive_clause)
         if assertive_clause.w1 != assertive_clause.w2:
             self.watched_lists[abs(assertive_clause.literals[assertive_clause.w2])].append(assertive_clause)
 
-        # Add the assertive clause into the list of learned clauses
+        # add to learned clauses
         self.learned_clauses.append(assertive_clause)
 
-        # Clear the unit clauses queue and add the assertive clause into the unit clauses queue
-        # together with its unit literal
         self.unit_clauses_queue.clear()
         self.unit_clauses_queue.append((assertive_clause, unit_literal))
 
@@ -323,11 +235,7 @@ class CNFFormula:
 
     def unit_propagation(self, decision_level: int) -> Tuple[list, Optional[Clause]]:
         """
-        Performs a unit propagation of this formula.
-        :param decision_level: decision level
-        :return: a tuple (assignment, antecedent_of_conflict) with assignment containing literals derived by unit
-            propagation and antecedent_of_conflict which is either None, if the unit propagation was successful
-            and no conflict was derived, or conflict clause.
+        Unit propagation algorithm
         """
         propagated_literals = []
         while self.unit_clauses_queue:
@@ -344,9 +252,7 @@ class CNFFormula:
 
     def pick_branching_variable(self, heuristic: int) -> int:
         """
-        Pick an unassigned decision literal based on heuristic specified in the argument.
-        :param heuristic: specifies a decision heuristic: `0`, `1`
-        :return: a new decision literal
+        Picks a branching variable based on the given heuristic
         """
         if heuristic == 0:
             return self.two_clause_heuristic()
@@ -360,11 +266,13 @@ class CNFFormula:
         if heuristic == 3:
             return self.random_heuristic()
         
+        if heuristic == 4:
+            return self.jeroslow_wang_heuristic()
+        
 ### Heuristics
     def unassigned_heuristic(self) -> int:
         """
-        Finds the unassigned literal which occurs in the largest number of not satisfied clauses.
-        :return: the decision literal
+        Finds the unassigned literal which is in largest occurrence in the unassigned clauses
         """
         number_of_clauses = -1
         decision_literal = None
@@ -387,6 +295,42 @@ class CNFFormula:
                 if negative_clauses > number_of_clauses:
                     number_of_clauses = negative_clauses
                     decision_literal = -variable
+
+        return decision_literal
+    
+    #jeroslow_wang_heuristic
+    def jeroslow_wang_heuristic(self) -> int:
+        max_j_score= -1
+        decision_literal = None
+        for variable in self.variables:
+            curr_score = 0
+            
+            if self.assignment[variable] == 0:
+                # positive_clauses = 0
+                # negative_clauses = 0
+                
+                for clause in self.watched_lists[variable]:
+                    clause_length = len(clause.literals)
+                    curr_score += 2**(-clause_length)
+                    
+                    if curr_score > max_j_score:
+                        max_j_score = curr_score
+                        decision_literal = variable
+                    
+                #     if not clause.is_satisfied(self.assignment):
+                #         unassigned = clause.partial_assignment(self.assignment)
+                #         if variable in unassigned:
+                #             positive_clauses += 1
+
+                #         if -variable in unassigned:
+                #             negative_clauses += 1
+                # if positive_clauses > number_of_clauses and positive_clauses > negative_clauses:
+                #     number_of_clauses = positive_clauses
+                #     decision_literal = variable
+
+                # if negative_clauses > number_of_clauses:
+                #     number_of_clauses = negative_clauses
+                #     decision_literal = -variable
 
         return decision_literal
 
@@ -434,10 +378,12 @@ class CNFFormula:
         Otherwise, it returns a random literal.
         :return: the decision literal
         """
+        unassigned_literals = []
         number_of_clauses = 0
         decision_literal = None
         for variable in self.variables:
             if self.assignment[variable] == 0:
+                unassigned_literals.append(variable)
                 positive_clauses = 0
                 negative_clauses = 0
                 for clause in self.watched_lists[variable]:
@@ -448,6 +394,7 @@ class CNFFormula:
 
                         if -variable in unassigned:
                             negative_clauses += 1
+                            
                 if positive_clauses > number_of_clauses and positive_clauses > negative_clauses:
                     number_of_clauses = positive_clauses
                     decision_literal = variable
@@ -457,7 +404,12 @@ class CNFFormula:
                     decision_literal = -variable
 
         if number_of_clauses == 0:
-            return self.random_heuristic()
+            decision_variable = random.choice(unassigned_literals)
+            if random.random() <= 0.5:
+                return decision_variable
+            else:
+                return -decision_variable
+    
 
         return decision_literal
 ######
@@ -465,8 +417,7 @@ class CNFFormula:
 
     def delete_learned_clauses_by_lbd(self, lbd_limit: float) -> None:
         """
-        Removes the learned clauses with lower LBD then the limit.
-        :param lbd_limit: maximum LBD of the clause
+        Deletes the learned clauses with LBD greater than the given limit.
         """
 
         lbd_limit = int(lbd_limit)
@@ -484,26 +435,7 @@ class CNFFormula:
 
     def restart(self) -> None:
         """
-        Performs the restart by clearing the unit clauses queue and backtracking to decision level 0.
+        Restarts the solver by clearing the unit clauses queue and backtracking to the root level.
         """
         self.unit_clauses_queue.clear()
         self.backtrack(decision_level=0)
-
-    def print(self) -> None:
-        """
-        Prints basic information about the formula.
-        """
-        # Not used in the dpll program itself.
-        print("Formula: ")
-        print(self.formula)
-        print("Clauses: ")
-        for clause in self.clauses:
-            print(clause.literals)
-
-        print("Variables: ")
-        print(self.variables)
-        print("Watched lists: ")
-        for variable, adj_list in self.watched_lists.items():
-            print(variable, ": ")
-            for clause in adj_list:
-                print(clause.literals)
