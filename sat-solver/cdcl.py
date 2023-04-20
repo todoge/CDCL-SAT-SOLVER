@@ -5,9 +5,9 @@ import time
 from typing import Tuple, Optional
 from matplotlib import pyplot as plt
 import numpy as np
-from cnf import Clause, CNFFormula
+from cnf import CNF
 
-def cdcl(cnf_formula: CNFFormula, heuristic: int = 1) -> Tuple[bool, list, int, int, int]:
+def cdcl(cnf_formula: CNF, heuristic: int = 1):
     """
     cdcl algorithm
     """
@@ -82,7 +82,7 @@ def execute(input_file: str, heuristic: int = 1) -> Optional[Tuple[bool, list, f
     formula = [list(map(int, clause[:-2].strip().split())) for clause in dimacs_formula if clause != "" and
                clause[0] not in ["c", "p", "%", "0"]]
 
-    cnf_formula = CNFFormula(formula)
+    cnf_formula = CNF(formula)
     start_time = time.time()
     sat, model, decisions, unit_propagations, restarts = cdcl(cnf_formula, heuristic)
     cpu_time = time.time() - start_time

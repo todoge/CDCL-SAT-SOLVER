@@ -67,7 +67,7 @@ class Clause:
         return (self.literals[self.w1] == assignment[abs(self.literals[self.w1])] or
                 self.literals[self.w2] == assignment[abs(self.literals[self.w2])])
 
-class CNFFormula:
+class CNF:
 
     def __init__(self, formula):
         self.formula = formula  # list of lists of lits
