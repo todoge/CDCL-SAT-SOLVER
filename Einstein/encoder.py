@@ -71,6 +71,9 @@ class Encoder:
             self.cnf.append('-{} {} {}'.format(
                 self.encode(i, attr1), self.encode(i, attr2), self.__terminal
             ))
+            self.cnf.append('{} -{} {}'.format(
+                self.encode(i, attr1), self.encode(i, attr2), self.__terminal
+            ))
         
     def neighbor(self, attr1, attr2):
         self.cnf.extend([
@@ -85,20 +88,18 @@ class Encoder:
                 self.encode(i, attr1), self.encode(i-1, attr2), self.encode(i+1, attr2), self.__terminal
             ))
 
-
     def generate_dimacs(self):
         self.__generate_house(Options.red.value, Options.yellow.value)
-        self.__generate_house(Options.british.value, Options.german.value)
         self.__generate_house(Options.tea.value, Options.milk.value)
         self.__generate_house(Options.prince.value, Options.dunhill.value)
         self.__generate_house(Options.dog.value, Options.fish.value)
-        
+        self.__generate_house(Options.british.value, Options.german.value)
         # The Norwegian lives in the first house.
-        '{} {}'.format(self.encode(1, Options.norwegian.value), self.__terminal)
+        self.cnf.append('{} {}'.format(self.encode(1, Options.norwegian.value), self.__terminal))
         # The Norwegian lives next to the blue house.
-        '{} {}'.format(self.encode(2, Options.blue.value), self.__terminal)
+        self.cnf.append('{} {}'.format(self.encode(2, Options.blue.value), self.__terminal))
         # The man living in the center house drinks milk.
-        '{} {}'.format(self.encode(3, Options.milk.value), self.__terminal)
+        self.cnf.append('{} {}'.format(self.encode(3, Options.milk.value), self.__terminal))
         # The Brit lives in the red house.
         self.and_operator(Options.british.value, Options.red.value)
         # The green house’s owner drinks coffee.
@@ -121,14 +122,19 @@ class Encoder:
         self.neighbor(Options.blend.value, Options.cat.value)
         # The man who smokes Blends has a neighbor who drinks water.
         self.neighbor(Options.blend.value, Options.water.value)
+        
+        # ADD CONSTRAINT HERE TO CHECK WHO OWNS THE FISH!
+        # self.and_operator(Options.german.value, Options.fish.value)
+
         # The green house is on the left of the white house.
         for w in range(1, self.length+1):
             for g in range(self.length, 0, -1):
                 if w-1 <= g <= w:
                     continue
-            self.cnf.append('-{} -{} {}'.format(
-                self.encode(w, Options.white.value), self.encode(g, Options.green.value), self.__terminal
-            ))
+                self.cnf.append('-{} -{} {}'.format(
+                    self.encode(w, Options.white.value), self.encode(g, Options.green.value), self.__terminal
+                ))
+                
         self.cnf.insert(0, 'p cnf {} {}'.format(125, len(self.cnf)))
         return os.linesep.join(self.cnf)
 
