@@ -58,7 +58,7 @@ class Encoder:
                     self.cnf.append('-{} -{} {}'.format(
                         self.encode(h2, i), self.encode(h1, i), self.__terminal
                     ))
-                # 1 category per house     Si,a ⇒ ¬Si,b
+                # 1 category per house
                 for j in range(start, end + 1):
                     if j == i:
                         continue
@@ -102,6 +102,12 @@ class Encoder:
         self.cnf.append('{} {}'.format(self.encode(3, Options.milk.value), self.__terminal))
         # The Brit lives in the red house.
         self.and_operator(Options.british.value, Options.red.value)
+        # The green house’s owner drinks coffee.
+        self.and_operator(Options.green.value, Options.coffee.value)
+        # The Dane drinks tea.
+        self.and_operator(Options.danish.value, Options.tea.value)
+        # The owner of the yellow house smokes Dunhill.
+        self.and_operator(Options.yellow.value, Options.dunhill.value)
         # The Swede keeps dogs as pets.
         self.and_operator(Options.swedish.value, Options.dog.value)
         # The German smokes Prince.
