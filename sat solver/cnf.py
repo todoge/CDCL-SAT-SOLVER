@@ -354,6 +354,12 @@ class CNFFormula:
         if heuristic == 1:
             return self.vsids_heuristic()
         
+        if heuristic == 2:
+            return self.unassigned_heuristic()
+        
+        if heuristic == 3:
+            return self.random_heuristic()
+        
 ### Heuristics
     def unassigned_heuristic(self) -> int:
         """

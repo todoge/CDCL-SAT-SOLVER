@@ -181,3 +181,54 @@ if __name__ == "__main__":
     print(f"Avg. decision count: {sum(decisions_list)/len(decisions_list)}")
     print(f"Avg. unit propagation count: {sum(unit_propagations_list)/len(unit_propagations_list)}")
     print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
+    
+    
+    #     # Parameters
+    # n_values = [50, 75, 100]  # corresponds to tc_1.cnf, tc_2.cnf, .. tc_5.cnf
+    # heuristics = ['0', '1', '2', '3']
+    # # Initialize arrays to store the result times
+    # result_times = {heuristic: [] for heuristic in heuristics}
+    
+    # # Loop over values of n and heuristics
+    # for n in n_values:
+    #     for heuristic in heuristics:
+    #         cnf_folder = '../test/n_{}_unsat'.format(n)
+    #         cnf_files = sorted([os.path.join(cnf_folder, f) for f in os.listdir(cnf_folder) if f.endswith('.cnf')])
+    #         cpu_times_list = []
+    #         decisions_list = []
+    #         unit_propagations_list = []
+    #         restarts_list = []
+    #         sat_count = 0
+    #         unsat_count = 0
+    #         for file_path in cnf_files:
+    #             sat, model, cpu_time, decisions, unit_propagations, restarts = find_model(file_path, args.assumption, heuristic, args.conflicts_limit, args.lbd_limit)
+    #             if sat:
+    #                 sat_count += 1
+    #             else :
+    #                 unsat_count += 1
+    #             cpu_times_list.append(cpu_time)
+    #             decisions_list.append(decisions)
+    #             unit_propagations_list.append(unit_propagations)
+    #             restarts_list.append(restarts)
+            
+    #         avg_time = sum(cpu_times_list)/len(cpu_times_list)
+    #         print(f"Total number of SAT: {sat_count}")
+    #         print(f"Total number of UNSAT: {unsat_count}")
+    #         print(f"Avg. CPU time: {avg_time:.7f}s")
+    #         print(f"Avg. decision count: {sum(decisions_list)/len(decisions_list)}")
+    #         print(f"Avg. unit propagation count: {sum(unit_propagations_list)/len(unit_propagations_list)}")
+    #         print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
+        
+    #         # Append the average result time to the appropriate array
+    #         result_times[heuristic].append(avg_time)
+
+    # # Plot the results
+    # plt.figure()
+    # plt.title('Average Result Time on CNF cases of n variables')
+    # plt.xlabel('n variables')
+    # plt.ylabel('Average CPU Time (seconds)')
+    # for heuristic in heuristics:
+    #     plt.plot(n_values, result_times[heuristic], label=heuristic)
+    # # set the x-axis tick labels to the test case file names
+    # plt.legend()
+    # plt.savefig('result_time_plot.png')
