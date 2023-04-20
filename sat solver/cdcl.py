@@ -115,18 +115,18 @@ def find_model(input_file: str, assumption: Optional[list] = None, heuristic: in
     sat, model, decisions, unit_propagations, restarts = cdcl(cnf_formula, assumption, heuristic, conflicts_limit,
                                                               lbd_limit)
     cpu_time = time.time() - start_time
-    if sat:
-        model.sort(key=abs)
-        print("CNF IS SAT!! :D")
-        print("Solution is", model)
-        print("Possible missing literals can have arbitrary value.")
-    else:
-        print("CNF IS UNSAT... :C")
-    print()
-    print("Total time taken =", cpu_time, "s")
-    print("Number of decisions =", decisions)
-    print("Number of steps of unit propagation =", unit_propagations)
-    print("Number of restarts =", restarts)
+    # if sat:
+    #     model.sort(key=abs)
+    #     print("CNF IS SAT!! :D")
+    #     print("Solution is", model)
+    #     print("Possible missing literals can have arbitrary value.")
+    # else:
+    #     print("CNF IS UNSAT... :C")
+    # print()
+    # print("Total time taken =", cpu_time, "s")
+    # print("Number of decisions =", decisions)
+    # print("Number of steps of unit propagation =", unit_propagations)
+    # print("Number of restarts =", restarts)
 
     return sat, model, cpu_time, decisions, unit_propagations, restarts
 
@@ -173,7 +173,6 @@ if __name__ == "__main__":
         unit_propagations_list.append(unit_propagations)
         restarts_list.append(restarts)
             
-
     print(f"Total number of SAT: {sat_count}")
     print(f"Total number of UNSAT: {unsat_count}")
 
@@ -183,8 +182,9 @@ if __name__ == "__main__":
     print(f"Avg. restart count: {sum(restarts_list)/len(restarts_list)}")
     
     
-    #     # Parameters
-    # n_values = [50, 75, 100]  # corresponds to tc_1.cnf, tc_2.cnf, .. tc_5.cnf
+    # Parameters
+    # n_values : List(int) = [20, 50, 75, 100]  # corresponds to tc_1.cnf, tc_2.cnf, .. tc_5.cnf
+
     # heuristics = ['0', '1', '2', '3']
     # # Initialize arrays to store the result times
     # result_times = {heuristic: [] for heuristic in heuristics}
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     # # Loop over values of n and heuristics
     # for n in n_values:
     #     for heuristic in heuristics:
-    #         cnf_folder = '../test/n_{}_unsat'.format(n)
+    #         cnf_folder = '../test/n_{}_sat'.format(n)
     #         cnf_files = sorted([os.path.join(cnf_folder, f) for f in os.listdir(cnf_folder) if f.endswith('.cnf')])
     #         cpu_times_list = []
     #         decisions_list = []
