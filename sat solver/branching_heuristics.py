@@ -42,7 +42,7 @@ class Heuristics:
     def vsids_heuristic(self) -> int:
         """
         Finds the unassigned literal based on VSIDS heuristic, i.e. the literal which is present the most in the
-        learned clauses.
+        learned clauses (when a clause is added).
         :return: the decision literal
         """
         decision_literal = None
@@ -76,3 +76,36 @@ class Heuristics:
 
         else:
             return -decision_variable
+    
+    def two_clause_heuristic(self) -> int:
+        """
+        Finds the unassigned literal based on 2-clause heuristic, i.e. the literal which is present the most in the 2-clause clauses.
+        Otherwise, it returns a random literal.
+        :return: the decision literal
+        """
+        number_of_clauses = 0
+        decision_literal = None
+        for variable in self.variables:
+            if self.assignment[variable] == 0:
+                positive_clauses = 0
+                negative_clauses = 0
+                for clause in self.watched_lists[variable]:
+                    if not clause.is_satisfied(self.assignment) and clause.number_of_literals() == 2:
+                        unassigned = clause.partial_assignment(self.assignment)
+                        if variable in unassigned:
+                            positive_clauses += 1
+
+                        if -variable in unassigned:
+                            negative_clauses += 1
+                if positive_clauses > number_of_clauses and positive_clauses > negative_clauses:
+                    number_of_clauses = positive_clauses
+                    decision_literal = variable
+
+                if negative_clauses > number_of_clauses:
+                    number_of_clauses = negative_clauses
+                    decision_literal = -variable
+
+        if number_of_clauses == 0:
+            return self.random_heuristic()
+
+        return decision_literal
