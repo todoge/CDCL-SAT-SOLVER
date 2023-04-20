@@ -58,7 +58,7 @@ class Encoder:
                     self.cnf.append('-{} -{} {}'.format(
                         self.encode(h2, i), self.encode(h1, i), self.__terminal
                     ))
-                # 1 category per house     Si,a ⇒ ¬Si,b
+                # 1 category per house
                 for j in range(start, end + 1):
                     if j == i:
                         continue
@@ -71,11 +71,6 @@ class Encoder:
             self.cnf.append('-{} {} {}'.format(
                 self.encode(i, attr1), self.encode(i, attr2), self.__terminal
             ))
-
-            self.cnf.append('{} -{} {}'.format(
-                self.encode(i, attr1), self.encode(i, attr2), self.__terminal
-            ))
-
         
     def neighbor(self, attr1, attr2):
         self.cnf.extend([
@@ -99,17 +94,33 @@ class Encoder:
         self.__generate_house(Options.dog.value, Options.fish.value)
         
         # The Norwegian lives in the first house.
-        self.cnf.append('{} {}'.format(self.encode(1, Options.norwegian.value), self.__terminal))
+        '{} {}'.format(self.encode(1, Options.norwegian.value), self.__terminal)
         # The Norwegian lives next to the blue house.
-        self.cnf.append('{} {}'.format(self.encode(2, Options.blue.value), self.__terminal))
+        '{} {}'.format(self.encode(2, Options.blue.value), self.__terminal)
         # The man living in the center house drinks milk.
-        self.cnf.append('{} {}'.format(self.encode(3, Options.milk.value), self.__terminal))
+        '{} {}'.format(self.encode(3, Options.milk.value), self.__terminal)
         # The Brit lives in the red house.
         self.and_operator(Options.british.value, Options.red.value)
-        # The Swede keeps dogs as pets.
-        self.and_operator(Options.swedish.value, Options.dog.value)
+        # The green house’s owner drinks coffee.
+        self.and_operator(Options.green.value, Options.coffee.value)
         # The Dane drinks tea.
         self.and_operator(Options.danish.value, Options.tea.value)
+        # The owner of the yellow house smokes Dunhill.
+        self.and_operator(Options.yellow.value, Options.dunhill.value)
+        # The Swede keeps dogs as pets.
+        self.and_operator(Options.swedish.value, Options.dog.value)
+        # The German smokes Prince.
+        self.and_operator(Options.german.value, Options.prince.value)
+        # The person who smokes Pall Mall rears birds.
+        self.and_operator(Options.pallmall.value, Options.bird.value)
+        # The owner who smokes Bluemasters drinks beer.
+        self.and_operator(Options.bluemasters.value, Options.beer.value)
+        # The man who keeps the horse lives next to the man who smokes Dunhill.
+        self.neighbor(Options.horse.value, Options.dunhill.value)
+        # The man who smokes Blends lives next to the one who keeps cats.
+        self.neighbor(Options.blend.value, Options.cat.value)
+        # The man who smokes Blends has a neighbor who drinks water.
+        self.neighbor(Options.blend.value, Options.water.value)
         # The green house is on the left of the white house.
         for w in range(1, self.length+1):
             for g in range(self.length, 0, -1):
@@ -118,27 +129,6 @@ class Encoder:
             self.cnf.append('-{} -{} {}'.format(
                 self.encode(w, Options.white.value), self.encode(g, Options.green.value), self.__terminal
             ))
-        # The green house’s owner drinks coffee.
-        self.and_operator(Options.green.value, Options.coffee.value)
-        # The person who smokes Pall Mall rears birds.
-        self.and_operator(Options.pallmall.value, Options.bird.value)
-        # The owner of the yellow house smokes Dunhill.
-        self.and_operator(Options.yellow.value, Options.dunhill.value)
-        # The man who smokes Blends lives next to the one who keeps cats.
-        self.neighbor(Options.blend.value, Options.cat.value)
-        # The man who keeps the horse lives next to the man who smokes Dunhill.
-        self.neighbor(Options.horse.value, Options.dunhill.value)
-        # The owner who smokes Bluemasters drinks beer.
-        self.and_operator(Options.bluemasters.value, Options.beer.value)
-        # The German smokes Prince.
-        self.and_operator(Options.german.value, Options.prince.value)
-        # The man who smokes Blends has a neighbor who drinks water.
-        self.neighbor(Options.blend.value, Options.water.value)
-
-        # # # The brit took the fish
-        # self.and_operator(Options.british.value, Options.fish.value)
-
-
         self.cnf.insert(0, 'p cnf {} {}'.format(125, len(self.cnf)))
         return os.linesep.join(self.cnf)
 
