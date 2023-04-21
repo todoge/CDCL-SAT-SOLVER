@@ -1,11 +1,7 @@
 # SAT Solver Program
-Run `python3 cdcl.py test.cnf --heuristic=4` to start program.
+Run `python3 cdcl.py test.cnf --heuristic=[heuristic id]` to run the CDCL SAT solver in Dimacs form.
 Run with `-h` or `--help` option to view options.
 
-By Peh Jun Siang A0201838H, Sunaga Shion A0210635R
+This project contains a CDCL solver, an encoding of the Einstein problem as well as a study of the bahaviour of Random K-CNF formulas for k = 3 to k = 5.
 
-Our project 2 is based on Q1.
-
-Section 6 of report has instructions to run the script and replicate our results.
-
-We think that if we were the evaluator we should get an [A] due to the rigour of our project :D
+The report, instructions to run the programs and the respective scripts can be found in the `sat solver` folder and the `k-cnf` folders respectively.
